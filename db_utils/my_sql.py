@@ -19,6 +19,7 @@ from typing import Union, Self
 from abc import ABC, abstractmethod
 
 # 项目模块
+from easy_utils.number_utils.number_utils import EasyFloat
 
 # 外部模块
 import numpy
@@ -85,16 +86,21 @@ def query_wrapper(f: callable):
 
     def wrapper(instance: Link, *args, **kwargs):
         succeeded = False
+        data_tuple = False
         try:
             instance.new_conn(*args, **kwargs)
             res = f(instance, *args, **kwargs)
+            if res != ():
+                data_tuple = True
+            else:
+                pass
             succeeded = True
         except Exception as e:
             print(str(e))
             res = ()
         instance.close_cursor()
         instance.close_conn()
-        return res, succeeded
+        return res, succeeded, data_tuple
 
     return wrapper
 
@@ -189,6 +195,26 @@ class MySQLLink(Link):
         self.conn.commit()
         return executer
 
+    def select_one_row(self, sql: str, *args, **kwargs):
+        """
+        返回dta[0]
+        """
+        res, succeeded, data_tuple = self.select(sql, *args, **kwargs)
+        if data_tuple is True:
+            return res[0], succeeded, data_tuple
+        else:
+            return res, succeeded, data_tuple
+
+    def select_one_data(self, sql: str, is_num=False, *args, **kwargs):
+        """
+        返回dta[0][0]
+        """
+        res, succeeded, data_tuple = self.select(sql, *args, **kwargs)
+        if data_tuple is True:
+            return EasyFloat(res[0][0]) if is_num else res[0][0], succeeded, data_tuple
+        else:
+            return res, succeeded, data_tuple
+
     def long_to_wide(
             self,
             table: str,
@@ -238,4 +264,5 @@ if __name__ == "__main__":
         "test_db",
         50
     )
-    print(test_link.insert("insert into test (id, name, value) values (3,'b',10)"))
+    # print(test_link.insert("insert into test (id, name, value) values (3,'b',10)"))
+    print(test_link.select_one_data("select name from test where id=1", True))

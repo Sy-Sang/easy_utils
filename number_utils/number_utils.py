@@ -33,42 +33,41 @@ class EasyFloat(float):
     常用数据清洗类
     """
 
-    def __new__(cls, x: Any, e: float = 0, no_inf: Union[bool, float] = False):
-        fx = e
+    def __new__(cls, x: Any, error_value: float = 0, fix_inf: Union[bool, float] = False):
         if isinstance(x, (float, int, decimal.Decimal)):
             if numpy.isnan(x):
-                pass
-            elif no_inf is not False and numpy.isinf(x):
-                fx = no_inf
+                fx = error_value
+            elif fix_inf is not False and numpy.isinf(x):
+                fx = fix_inf
             else:
                 fx = x
         elif isinstance(x, str):
             number_str = "".join([i for i in re.findall(r'\d+', x)])
-            fx = float(number_str) if number_str else e
+            fx = float(number_str) if number_str else error_value
         elif isinstance(x, datetime):
             fx = x.timestamp()
         else:
-            pass
+            fx = error_value
         return super(EasyFloat, cls).__new__(cls, fx)
 
-    def __init__(self, x: Any, e: float = 0, no_inf: Union[bool, float] = False, r: int = 10):
+    def __init__(self, x: Any, error_value: float = 0, fix_inf: Union[bool, float] = False, r: int = 10):
         self.str = str(round(self, r))
-        self.e = e
-        self.no_inf = no_inf
+        self.error_value = error_value
+        self.fix_inf = fix_inf
 
     def __str__(self):
         return self.str
 
     def __truediv__(self, other):
         if other == 0:
-            return type(self)(self.e)
+            return type(self)(self.error_value)
         else:
             return super().__truediv__(other)
 
     def __rtruediv__(self, other):
         if self == 0:
-            if self.no_inf is True:
-                return type(self)(self.e)
+            if self.fix_inf is not False:
+                return type(self)(self.fix_inf)
             else:
                 return type(self)(numpy.inf)
         else:
@@ -76,25 +75,31 @@ class EasyFloat(float):
 
     def __divmod__(self, other):
         if other == 0:
-            return type(self)(self.e)
+            return type(self)(self.error_value)
         else:
             return super().__divmod__(other)
 
     def __rdivmod__(self, other):
         if self == 0:
-            return type(self)(self.e)
+            if self.fix_inf is not False:
+                return type(self)(self.fix_inf)
+            else:
+                return type(self)(numpy.inf)
         else:
             return super().__rdivmod__(other)
 
     def __floordiv__(self, other):
         if other == 0:
-            return type(self)(self.e)
+            return type(self)(self.error_value)
         else:
             return super().__floordiv__(other)
 
     def __rfloordiv__(self, other):
         if self == 0:
-            return type(self)(self.e)
+            if self.fix_inf is not False:
+                return type(self)(self.fix_inf)
+            else:
+                return type(self)(numpy.inf)
         else:
             return super().__rfloordiv__(other)
 
@@ -164,5 +169,6 @@ class EasyFloat(float):
 
 if __name__ == "__main__":
     f = EasyFloat(0)
-    print(EasyFloat.frange(0.1, 0.5, 0.01, closed_interval=True))
-    print(EasyFloat.finterval(0, 10, 2, closed_interval=True))
+    # print(EasyFloat.frange(0.1, 0.5, 0.01, closed_interval=True))
+    # print(EasyFloat.finterval(0, 10, 2, closed_interval=True))
+    print(1 / (-1 / f))
