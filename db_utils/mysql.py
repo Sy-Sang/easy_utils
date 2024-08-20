@@ -39,14 +39,23 @@ class Link(ABC):
 
     @abstractmethod
     def new_conn(self, *args, **kwargs):
+        """
+        新建连接
+        """
         pass
 
     @abstractmethod
     def close_cursor(self, *args, **kwargs):
+        """
+        关闭cursor
+        """
         pass
 
     @abstractmethod
     def close_conn(self, *args, **kwargs):
+        """
+        关闭连接
+        """
         pass
 
 
@@ -121,7 +130,6 @@ class MySQLLink(Link):
         :param max_try:
         """
         super().__init__(url, port, user, pwd, db, max_try)
-
         self.conn = None
         self.cursor = None
 
@@ -153,6 +161,10 @@ class MySQLLink(Link):
             self.conn.close()
             self.conn = None
             return 1
+        elif "close" in dir(self.conn):
+            self.conn.close()
+            self.conn = None
+            return 1
         else:
             return 0
 
@@ -162,6 +174,10 @@ class MySQLLink(Link):
         :return:
         """
         if isinstance(self.cursor, pymysql.cursors.Cursor):
+            self.cursor.close()
+            self.cursor = None
+            return 1
+        elif "close" in dir(self.cursor):
             self.cursor.close()
             self.cursor = None
             return 1
