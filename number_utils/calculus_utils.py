@@ -11,6 +11,7 @@ import json
 from typing import Union, Self
 
 # 项目模块
+from easy_datetime.timestamp import timer
 
 # 外部模块
 import numpy
@@ -97,6 +98,29 @@ def simpsons_integrate(f: callable, first: float, end: float, num, *args, **kwar
     return integral
 
 
+def romberg_integration(f, a, b, tol=1e-6, max_iter=10):
+    """
+    龙伯格积分
+    """
+    R = numpy.zeros((max_iter, max_iter))
+    h = b - a
+
+    R[0, 0] = 0.5 * h * (f(a) + f(b))
+
+    for i in range(1, max_iter):
+        h /= 2.0
+        sum_f = sum(f(a + (k + 0.5) * h * 2) for k in range(2 ** (i - 1)))
+        R[i, 0] = 0.5 * R[i - 1, 0] + sum_f * h
+
+        for j in range(1, i + 1):
+            R[i, j] = R[i, j - 1] + (R[i, j - 1] - R[i - 1, j - 1]) / (4 ** j - 1)
+
+        if abs(R[i, i] - R[i - 1, i - 1]) < tol:
+            return R[i, i]
+
+    return R[max_iter - 1, max_iter - 1]
+
+
 if __name__ == "__main__":
     x = numpy.arange(0, 10, 0.01)
     y = numpy.sin(x)
@@ -104,3 +128,4 @@ if __name__ == "__main__":
     print(n_integrate(data))
     print(n_integrate2(data))
     print(simpsons_integrate(numpy.sin, 0, 10, 100))
+    print(romberg_integration(numpy.sin, 0, 10))
