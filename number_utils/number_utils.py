@@ -27,16 +27,33 @@ import numpy
 
 
 # 代码块
+def infectious_wrapper(f: callable):
+    """
+    将涉及除0的计算结果改变为easyfloat类
+    """
+
+    def wrapper(instance, *args, **kwargs):
+        param_dic = {
+            "error_value": instance.error_value,
+            "fix_nan": instance.fix_nan,
+            "fix_inf": instance.fix_inf,
+            "r": instance.r
+        }
+        return type(instance)(f(instance, *args, **kwargs), **param_dic)
+
+    return wrapper
+
 
 class EasyFloat(float):
     """
     常用数据清洗类
     """
 
-    def __new__(cls, x: Any, error_value: float = 0, fix_inf: Union[bool, float] = False):
+    def __new__(cls, x: Any, error_value: float = 0, fix_nan: Union[bool, float] = False,
+                fix_inf: Union[bool, float] = False, *args, **kwargs):
         if isinstance(x, (float, int, decimal.Decimal)):
-            if numpy.isnan(x):
-                fx = error_value
+            if fix_nan is not False and numpy.isnan(x):
+                fx = fix_nan
             elif fix_inf is not False and numpy.isinf(x):
                 fx = fix_inf
             else:
@@ -50,56 +67,74 @@ class EasyFloat(float):
             fx = error_value
         return super(EasyFloat, cls).__new__(cls, fx)
 
-    def __init__(self, x: Any, error_value: float = 0, fix_inf: Union[bool, float] = False, r: int = 10):
+    def __init__(self, x: Any, error_value: float = 0, fix_nan: Union[bool, float] = False,
+                 fix_inf: Union[bool, float] = False, r: int = 10):
         self.str = str(round(self, r))
         self.error_value = error_value
+        self.fix_nan = fix_nan
         self.fix_inf = fix_inf
+        self.r = r
 
     def __str__(self):
         return self.str
 
+    @infectious_wrapper
     def __truediv__(self, other):
         if other == 0:
-            return type(self)(self.error_value)
+            if self.fix_nan is not False:
+                return self.fix_nan
+            else:
+                return numpy.nan
         else:
             return super().__truediv__(other)
 
+    @infectious_wrapper
     def __rtruediv__(self, other):
         if self == 0:
             if self.fix_inf is not False:
-                return type(self)(self.fix_inf)
+                return self.fix_inf
             else:
-                return type(self)(numpy.inf)
+                return numpy.inf
         else:
             return super().__rtruediv__(other)
 
+    @infectious_wrapper
     def __divmod__(self, other):
         if other == 0:
-            return type(self)(self.error_value)
+            if self.fix_nan is not False:
+                return self.fix_nan
+            else:
+                return numpy.nan
         else:
             return super().__divmod__(other)
 
+    @infectious_wrapper
     def __rdivmod__(self, other):
         if self == 0:
             if self.fix_inf is not False:
-                return type(self)(self.fix_inf)
+                return self.fix_inf
             else:
-                return type(self)(numpy.inf)
+                return numpy.inf
         else:
             return super().__rdivmod__(other)
 
+    @infectious_wrapper
     def __floordiv__(self, other):
         if other == 0:
-            return type(self)(self.error_value)
+            if self.fix_nan is not False:
+                return self.fix_nan
+            else:
+                return numpy.nan
         else:
             return super().__floordiv__(other)
 
+    @infectious_wrapper
     def __rfloordiv__(self, other):
         if self == 0:
             if self.fix_inf is not False:
-                return type(self)(self.fix_inf)
+                return self.fix_inf
             else:
-                return type(self)(numpy.inf)
+                return numpy.inf
         else:
             return super().__rfloordiv__(other)
 
@@ -168,7 +203,7 @@ class EasyFloat(float):
 
 
 if __name__ == "__main__":
-    f = EasyFloat(0)
+    f = EasyFloat(0, fix_nan=False, fix_inf=numpy.nan)
     # print(EasyFloat.frange(0.1, 0.5, 0.01, closed_interval=True))
     # print(EasyFloat.finterval(0, 10, 2, closed_interval=True))
-    print(1 / (-1 / f))
+    print(1 / f)
