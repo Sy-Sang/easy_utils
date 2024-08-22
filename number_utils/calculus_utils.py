@@ -67,7 +67,7 @@ def n_integrate2(xlist, interpolate: int = 10, *args, **kwargs) -> float:
 def integrate(f: callable, first: float, end: float, num, *args, **kwargs) -> float:
     """梯形积分"""
     x = numpy.linspace(first, end, num)
-    y = numpy.array([f(i) for i in x])
+    y = numpy.array([f(i, *args, **kwargs) for i in x])
     return n_integrate(numpy.column_stack((x, y)))
 
 
@@ -76,7 +76,7 @@ def integrate2(f: callable, first: float, end: float, num, interpolate: int = 10
     使用三次样条差值的梯形积分
     """
     x = numpy.linspace(first, end, num)
-    y = numpy.array([f(i) for i in x])
+    y = numpy.array([f(i, *args, **kwargs) for i in x])
     return n_integrate2(numpy.column_stack((x, y)), interpolate)
 
 
@@ -94,23 +94,26 @@ def simpsons_integrate(f: callable, first: float, end: float, num, *args, **kwar
     num = num if num % 2 == 0 else num + 1
     h = (end - first) / num
     x = numpy.linspace(first, end, num + 1)
-    fx = numpy.array([f(i) for i in x])
+    fx = numpy.array([f(i, *args, **kwargs) for i in x])
     integral = h / 3 * (fx[0] + 2 * sum(fx[2:num:2]) + 4 * sum(fx[1:num:2]) + fx[num])
     return integral
 
 
-def romberg_integration(f, a, b, tol=1e-6, max_iter=10):
+def romberg_integration(f: callable, a, b, tol=1e-6, max_iter=10, *args, **kwargs) -> float:
     """
     龙伯格积分
     """
     R = numpy.zeros((max_iter, max_iter))
     h = b - a
 
-    R[0, 0] = 0.5 * h * (f(a) + f(b))
+    R[0, 0] = 0.5 * h * (f(a, *args, **kwargs) + f(b, *args, **kwargs))
 
     for i in range(1, max_iter):
         h /= 2.0
-        sum_f = sum(f(a + (k + 0.5) * h * 2) for k in range(2 ** (i - 1)))
+        sum_f = sum(
+            f(a + (k + 0.5) * h * 2, *args, **kwargs)
+            for k in range(2 ** (i - 1))
+        )
         R[i, 0] = 0.5 * R[i - 1, 0] + sum_f * h
 
         for j in range(1, i + 1):
@@ -120,6 +123,21 @@ def romberg_integration(f, a, b, tol=1e-6, max_iter=10):
             return R[i, i]
 
     return R[max_iter - 1, max_iter - 1]
+
+
+def gaussian_numerical_integration(f: callable, a, b, num=100, *args, **kwargs):
+    """
+    高斯数值积分
+    """
+    r = 0
+    nodes, weights = numpy.polynomial.legendre.leggauss(num)
+
+    for i, x in enumerate(nodes):
+        w = weights[i]
+        t = (b - a) / 2 * x + (b + a) / 2
+        r += w * f(t, *args, **kwargs)
+    r *= (b - a) / 2
+    return r
 
 
 def newton_method(f: callable, x0: Union[float, int, decimal.Decimal, numpy.floating],
@@ -146,10 +164,11 @@ def newton_method(f: callable, x0: Union[float, int, decimal.Decimal, numpy.floa
 
 
 if __name__ == "__main__":
-    x = numpy.arange(0, 10, 0.01)
+    x = numpy.arange(-10, 10, 0.01)
     y = numpy.sin(x)
     data = numpy.column_stack((x, y))
     print(n_integrate(data))
     print(n_integrate2(data))
     print(simpsons_integrate(numpy.sin, 0, 10, 100))
     print(romberg_integration(numpy.sin, 0, 10))
+    print(gaussian_numerical_integration(numpy.sin, 0, 10, 100))
