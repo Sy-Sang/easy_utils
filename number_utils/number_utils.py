@@ -139,7 +139,7 @@ class EasyFloat(float):
             return super().__rfloordiv__(other)
 
     @classmethod
-    def frange(cls, *args, first: float = 0, end: float = 1, step: float = 0.1, closed_interval: bool = False) -> list:
+    def frange(cls, *args) -> list:
         """
         生成保证浮点数位数的range list
         :param first:
@@ -149,15 +149,36 @@ class EasyFloat(float):
         :param args:
         :return:
         """
-        num_args = len(args)
-        if num_args >= 1:
+        first = 0
+        end = 1
+        step = 0.1
+        closed_interval = False
+        l = len(args)
+
+        if l <= 0:
+            first = 0
+            end = 1
+            step = 0.1
+            closed_interval = False
+        elif l == 1:
+            first = 0
             end = args[0]
-        if num_args >= 2:
+            step = 1
+            closed_interval = False
+        elif l == 2:
             first = args[0]
             end = args[1]
-        if num_args >= 3:
+            step = 1
+            closed_interval = False
+        elif l == 3:
+            first = args[0]
+            end = args[1]
             step = args[2]
-        if num_args >= 4:
+            closed_interval = False
+        elif l >= 4:
+            first = args[0]
+            end = args[1]
+            step = args[2]
             closed_interval = args[3]
 
         range_list = []
@@ -165,17 +186,19 @@ class EasyFloat(float):
         decimal_step = decimal.Decimal(str(step))
         decimal_end = decimal.Decimal(str(end))
         decimal_ranger = decimal_first
-        while decimal_ranger <= decimal_end:
-            range_list.append(float(decimal_ranger))
+
+        while True:
+            if decimal_ranger < decimal_end:
+                range_list.append(float(decimal_ranger))
+            elif decimal_ranger == decimal_end and closed_interval is True:
+                range_list.append(float(decimal_ranger))
+            else:
+                break
             decimal_ranger += decimal_step
-        if not closed_interval and float(decimal_end) in range_list:
-            range_list.remove(float(decimal_end))
-        else:
-            pass
         return range_list
 
     @classmethod
-    def finterval(cls, *args, first: float = 0, end: float = 1, num: int = 10, closed_interval: bool = False) -> list:
+    def finterval(cls, *args) -> list:
         """
         生成均匀间隔序列
         :param args:
@@ -185,17 +208,36 @@ class EasyFloat(float):
         :param closed_interval:
         :return:
         """
-        num_args = len(args)
-        if num_args >= 1:
-            num = args[0]
-        if num_args >= 2:
+        l = len(args)
+        first = 0
+        end = 1
+        num = 10
+        closed_interval = False
+
+        if l <= 0:
+            first = 0
+            end = 1
+            num = 10
+            closed_interval = False
+        elif l == 1:
+            first = 0
             end = args[0]
-            num = args[1]
-        if num_args >= 3:
+            num = 10
+            closed_interval = False
+        elif l == 2:
+            first = args[0]
+            end = args[1]
+            num = 10
+            closed_interval = False
+        elif l == 3:
             first = args[0]
             end = args[1]
             num = args[2]
-        if num_args >= 4:
+            closed_interval = False
+        elif l >= 4:
+            first = args[0]
+            end = args[1]
+            num = args[2]
             closed_interval = args[3]
 
         step = (end - first) / num
@@ -203,7 +245,8 @@ class EasyFloat(float):
 
 
 if __name__ == "__main__":
-    f = EasyFloat(0, fix_nan=False, fix_inf=numpy.nan)
-    # print(EasyFloat.frange(0.1, 0.5, 0.01, closed_interval=True))
-    # print(EasyFloat.finterval(0, 10, 2, closed_interval=True))
-    print(1 / f)
+    print(EasyFloat.frange(11))
+    # f = EasyFloat(0, fix_nan=False, fix_inf=numpy.nan)
+    # # print(EasyFloat.frange(0.1, 0.5, 0.01, closed_interval=True))
+    # # print(EasyFloat.finterval(0, 10, 2, closed_interval=True))
+    # print(1 / f)
