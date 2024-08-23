@@ -19,6 +19,7 @@ from typing import Union, Self
 from abc import ABC, abstractmethod
 
 # 项目模块
+# from number_utils.number_utils import EasyFloat
 from easy_utils.number_utils.number_utils import EasyFloat
 
 # 外部模块
@@ -192,6 +193,15 @@ class MySQLLink(Link):
         self.cursor.execute(sql)
         query_result = self.cursor.fetchall()
         return query_result
+
+    @query_wrapper
+    def update(self, sql:str, *args, **kwargs):
+        """
+        更新数据
+        """
+        executer = self.cursor.execute(sql)
+        self.conn.commit()
+        return executer
 
     @query_wrapper
     def insert(self, sql: str, *args, **kwargs):

@@ -187,14 +187,24 @@ class EasyFloat(float):
         decimal_end = decimal.Decimal(str(end))
         decimal_ranger = decimal_first
 
-        while True:
-            if decimal_ranger < decimal_end:
-                range_list.append(float(decimal_ranger))
-            elif decimal_ranger == decimal_end and closed_interval is True:
-                range_list.append(float(decimal_ranger))
-            else:
-                break
-            decimal_ranger += decimal_step
+        if end >= first:
+            while True:
+                if decimal_ranger < decimal_end:
+                    range_list.append(float(decimal_ranger))
+                elif decimal_ranger == decimal_end and closed_interval is True:
+                    range_list.append(float(decimal_ranger))
+                else:
+                    break
+                decimal_ranger += decimal_step
+        else:
+            while True:
+                if decimal_ranger > decimal_end:
+                    range_list.append(float(decimal_ranger))
+                elif decimal_ranger == decimal_end and closed_interval is True:
+                    range_list.append(float(decimal_ranger))
+                else:
+                    break
+                decimal_ranger += decimal_step
         return range_list
 
     @classmethod
@@ -243,10 +253,20 @@ class EasyFloat(float):
         step = (end - first) / num
         return cls.frange(first, end, step, closed_interval)
 
+    @classmethod
+    def np_frange(cls, *args) -> numpy.array:
+        return numpy.array(cls.frange(*args))
+
+    @classmethod
+    def np_finterval(cls, *args) -> numpy.array:
+        return numpy.array(cls.finterval(*args))
+
 
 if __name__ == "__main__":
-    print(EasyFloat.frange(11))
+    # print(EasyFloat.frange(11))
     # f = EasyFloat(0, fix_nan=False, fix_inf=numpy.nan)
     # # print(EasyFloat.frange(0.1, 0.5, 0.01, closed_interval=True))
     # # print(EasyFloat.finterval(0, 10, 2, closed_interval=True))
     # print(1 / f)
+    print(EasyFloat.np_finterval(0, -1, 10))
+    print(EasyFloat.np_frange(0, -1, -0.1, True))
