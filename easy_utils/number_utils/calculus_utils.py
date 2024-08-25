@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Sy,Sang"
+__license__ = "GPLv3"
 __version__ = ""
 
 # 系统模块
