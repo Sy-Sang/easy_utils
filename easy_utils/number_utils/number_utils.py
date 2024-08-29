@@ -250,8 +250,13 @@ class EasyFloat(float):
             num = args[2]
             closed_interval = args[3]
 
-        step = (end - first) / num
-        return cls.frange(first, end, step, closed_interval)
+        decimal_first = decimal.Decimal(str(first))
+        decimal_num = decimal.Decimal(str(num))
+        decimal_end = decimal.Decimal(str(end))
+
+        decimal_step = (decimal_end - decimal_first) / decimal_num
+        return cls.frange(decimal_first, decimal_end, decimal_step, False) if closed_interval is False \
+            else numpy.linspace(first, end, num).tolist()
 
     @classmethod
     def np_frange(cls, *args) -> numpy.array:
@@ -268,5 +273,6 @@ if __name__ == "__main__":
     # # print(EasyFloat.frange(0.1, 0.5, 0.01, closed_interval=True))
     # # print(EasyFloat.finterval(0, 10, 2, closed_interval=True))
     # print(1 / f)
-    print(EasyFloat.np_finterval(0, -1, 10))
-    print(EasyFloat.np_frange(0, -1, -0.1, True))
+    print(len(EasyFloat.finterval(0.01, 0.99, 100, False)))
+    # print(len(EasyFloat.frange(0.01, 1, 0.0099, False)))
+    # print(EasyFloat.np_frange(0, -1, -0.1, True))
