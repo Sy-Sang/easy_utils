@@ -164,6 +164,59 @@ def newton_method(f: callable, x0: Union[float, int, decimal.Decimal, numpy.floa
     return x, abs(f(x, *args, **kwargs)) - tol
 
 
+def adam_method(
+        f: callable,
+        x: Union[list, tuple, numpy.ndarray],
+        y: Union[list, tuple, numpy.ndarray],
+        diff: float = 1e-5,
+        lr: float = 0.1,
+        epoch: int = 200,
+        *args,
+        **kwargs
+):
+    """
+    简单的adam梯度下降
+    """
+    grad = [0] * len(x)
+    beta1 = 0.9
+    beta2 = 0.999
+    epsilon = 1e-8
+    m = numpy.zeros_like(x)  # 初始化一阶矩估计
+    v = numpy.zeros_like(x)  # 初始化二阶矩估计
+    t = 0  # 时间步长
+
+    x = numpy.array(x)
+    y = numpy.array(y)
+
+    for ep in range(epoch):
+        for i, xi in enumerate(x):
+            dx_plus = xi + diff
+            dx_minus = xi - diff
+
+            x_plus = [
+                xj if j != i else dx_plus for j, xj in enumerate(x)
+            ]
+
+            x_minus = [
+                xj if j != i else dx_minus for j, xj in enumerate(x)
+            ]
+
+            loss_plus = numpy.mean((y - f(x_plus, *args, **kwargs)) ** 2)
+            loss_minus = numpy.mean((y - f(x_minus, *args, **kwargs)) ** 2)
+
+            grad[i] = (loss_plus - loss_minus) / (2 * lr)
+
+        t += 1
+        m = beta1 * m + (1 - beta1) * numpy.array(grad)
+        v = beta2 * v + (1 - beta2) * (numpy.array(grad) ** 2)
+        m_hat = m / (1 - beta1 ** t)
+        v_hat = v / (1 - beta2 ** t)
+
+        x -= lr * m_hat / (numpy.sqrt(v_hat) + epsilon)
+
+    return x
+
+
 if __name__ == "__main__":
     x = numpy.arange(-10, 10, 0.01)
     y = numpy.sin(x)
