@@ -195,7 +195,7 @@ class MySQLLink(Link):
         return query_result
 
     @query_wrapper
-    def update(self, sql:str, *args, **kwargs):
+    def update(self, sql: str, *args, **kwargs):
         """
         更新数据
         """
@@ -282,13 +282,4 @@ class MySQLLink(Link):
 
 
 if __name__ == "__main__":
-    test_link = MySQLLink(
-        "bj-cynosdbmysql-grp-94j6daxc.sql.tencentcdb.com",
-        22681,
-        "sangsiyuan",
-        "!Sakula131313",
-        "test_db",
-        50
-    )
-    # print(test_link.insert("insert into test (id, name, value) values (3,'b',10)"))
-    print(test_link.select_one_data("select name from test where id=1", True))
+    pass
