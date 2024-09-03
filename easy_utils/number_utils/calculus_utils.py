@@ -171,12 +171,25 @@ def adam_method(
         diff: float = 1e-5,
         lr: float = 0.1,
         epoch: int = 200,
+        loss: str = None,
         *args,
         **kwargs
 ):
     """
     简单的adam梯度下降
     """
+
+    def mse(_x, _y):
+        """
+        MES损失函数, 默认
+        """
+        return numpy.mean((_y - f(_x, *args, **kwargs)) ** 2)
+
+    if loss is None:
+        loss = mse
+    else:
+        pass
+
     grad = [0] * len(x)
     beta1 = 0.9
     beta2 = 0.999
@@ -201,8 +214,8 @@ def adam_method(
                 xj if j != i else dx_minus for j, xj in enumerate(x)
             ]
 
-            loss_plus = numpy.mean((y - f(x_plus, *args, **kwargs)) ** 2)
-            loss_minus = numpy.mean((y - f(x_minus, *args, **kwargs)) ** 2)
+            loss_plus = loss(x_plus, y)
+            loss_minus = loss(x_minus, y)
 
             grad[i] = (loss_plus - loss_minus) / (2 * lr)
 
