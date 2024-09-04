@@ -185,10 +185,15 @@ def adam_method(
         """
         return numpy.mean((_y - f(_x, *args, **kwargs)) ** 2)
 
-    if loss is None:
+    def mae(_x, _y):
+        return numpy.mean(abs(_y - f(_x, *args, **kwargs)))
+
+    if loss == "mse":
         loss = mse
+    elif loss == "mae":
+        loss = mae
     else:
-        pass
+        loss = mse
 
     grad = [0] * len(x)
     beta1 = 0.9
@@ -197,6 +202,8 @@ def adam_method(
     m = numpy.zeros_like(x)  # 初始化一阶矩估计
     v = numpy.zeros_like(x)  # 初始化二阶矩估计
     t = 0  # 时间步长
+    m_hat = 0
+    v_hat = 0
 
     x = numpy.array(x)
     y = numpy.array(y)
@@ -227,7 +234,7 @@ def adam_method(
 
         x -= lr * m_hat / (numpy.sqrt(v_hat) + epsilon)
 
-    return x
+    return x, m_hat / (numpy.sqrt(v_hat) + epsilon)
 
 
 if __name__ == "__main__":
