@@ -50,9 +50,9 @@ def flatten(seq: Union[list, tuple, numpy.ndarray]) -> list:
             seq = flatten_list
 
 
-def dict_flatten(dic: dict, fill_type=None):
+def dict_flatten(dic: dict, fill_type=None) -> list:
     """
-    压平字典中的值
+    压平字典
     """
     if fill_type is None:
         fill_type = (dict, list, tuple)
