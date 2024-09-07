@@ -224,7 +224,7 @@ def adam_method(
             loss_plus = loss(x_plus, y)
             loss_minus = loss(x_minus, y)
 
-            grad[i] = (loss_plus - loss_minus) / (2 * lr)
+            grad[i] = (loss_plus - loss_minus) / (2 * diff)
 
         t += 1
         m = beta1 * m + (1 - beta1) * numpy.array(grad)
@@ -238,11 +238,23 @@ def adam_method(
 
 
 if __name__ == "__main__":
-    x = numpy.arange(-10, 10, 0.01)
-    y = numpy.sin(x)
-    data = numpy.column_stack((x, y))
-    print(n_integrate(data))
-    print(n_integrate2(data))
-    print(simpsons_integrate(numpy.sin, 0, 10, 100))
-    print(romberg_integration(numpy.sin, 0, 10))
-    print(gaussian_numerical_integration(numpy.sin, 0, 10, 100))
+    def f(x):
+        return numpy.array(x) ** 2
+
+
+    def g(x):
+        return numpy.array(x) ** 2 - 10
+
+
+    print(adam_method(f, [1.0], [10.0]))
+
+    print(newton_method(g, 0))
+
+    # x = numpy.arange(-10, 10, 0.01)
+    # y = numpy.sin(x)
+    # data = numpy.column_stack((x, y))
+    # print(n_integrate(data))
+    # print(n_integrate2(data))
+    # print(simpsons_integrate(numpy.sin, 0, 10, 100))
+    # print(romberg_integration(numpy.sin, 0, 10))
+    # print(gaussian_numerical_integration(numpy.sin, 0, 10, 100))
