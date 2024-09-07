@@ -25,8 +25,10 @@ from datetime import datetime
 # 外部模块
 import numpy
 
-
 # 代码块
+Eps = numpy.finfo(float).eps
+
+
 def infectious_wrapper(f: callable):
     """
     将涉及除0的计算结果改变为easyfloat类
@@ -77,6 +79,9 @@ class EasyFloat(float):
 
     def __str__(self):
         return self.str
+
+    def __repr__(self):
+        return self.__str__()
 
     @infectious_wrapper
     def __truediv__(self, other):
