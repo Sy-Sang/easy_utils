@@ -271,6 +271,26 @@ class EasyFloat(float):
     def np_finterval(cls, *args) -> numpy.array:
         return numpy.array(cls.finterval(*args))
 
+    @classmethod
+    def put_in_range(cls, domain_min, domain_max, *args):
+        """将随机变量置于曲线可用范围内"""
+        ylist = []
+        for x in args:
+            x = float(x)
+            if domain_min and domain_max is None:
+                # return x
+                ylist.append(x)
+            elif domain_min is None:
+                ylist.append(min(domain_max, x))
+            elif domain_max is None:
+                ylist.append(max(domain_min, x))
+            else:
+                ylist.append(min(max(domain_min, x), domain_max))
+        if len(args) == 1:
+            return ylist[0]
+        else:
+            return ylist
+
 
 if __name__ == "__main__":
     # print(EasyFloat.frange(11))
