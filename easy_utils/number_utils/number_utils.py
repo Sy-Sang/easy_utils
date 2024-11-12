@@ -277,7 +277,7 @@ class EasyFloat(float):
         ylist = []
         for x in args:
             x = float(x)
-            if domain_min and domain_max is None:
+            if domain_min is None and domain_max is None:
                 # return x
                 ylist.append(x)
             elif domain_min is None:
