@@ -17,6 +17,7 @@ import pickle
 import json
 from typing import Union, Self
 from abc import ABC, abstractmethod
+from collections import namedtuple
 
 # 项目模块
 # from number_utils.number_utils import EasyFloat
@@ -26,8 +27,10 @@ from easy_utils.number_utils.number_utils import EasyFloat
 import numpy
 import pymysql
 
-
 # 代码块
+
+SelectResult = namedtuple("SelectResult", ["data", "success", "is_data_tuple"])
+
 
 class Link(ABC):
     def __init__(self, url: str, port: int, user: str, pwd: str, db: str, max_try=50, *args, **kwargs):
@@ -110,7 +113,7 @@ def query_wrapper(f: callable):
             res = ()
         instance.close_cursor()
         instance.close_conn()
-        return res, succeeded, data_tuple
+        return SelectResult(res, succeeded, data_tuple)
 
     return wrapper
 
