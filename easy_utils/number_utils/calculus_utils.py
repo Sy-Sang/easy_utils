@@ -100,6 +100,16 @@ def simpsons_integrate(f: callable, first: float, end: float, num, *args, **kwar
     return integral
 
 
+def v_simpsons_integrate(f: callable, first, end, num, *args, **kwargs) -> Union[float, numpy.ndarray]:
+    """向量化的辛普森法则积分"""
+    num = num if num % 2 == 0 else num + 1
+    h = (end - first) / num
+    x = numpy.linspace(first, end, num + 1)
+    fx = f(x, *args, **kwargs)
+    integral = h / 3 * (fx[0] + 2 * numpy.sum(fx[2:num:2]) + 4 * numpy.sum(fx[1:num:2]) + fx[num])
+    return integral
+
+
 def romberg_integration(f: callable, a, b, tol=1e-6, max_iter=10, *args, **kwargs) -> float:
     """
     龙伯格积分
