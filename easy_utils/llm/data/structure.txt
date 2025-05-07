@@ -1,0 +1,933 @@
+卷 代码 的文件夹 PATH 列表
+卷序列号为 50E3-DCDE
+E:.
+│  structure.txt
+│  拉取远程.bat
+│  提交from office.bat
+│  
+├─.idea
+│  │  .gitignore
+│  │  dataSources.local.xml
+│  │  dataSources.xml
+│  │  github.iml
+│  │  misc.xml
+│  │  modules.xml
+│  │  other.xml
+│  │  sqldialects.xml
+│  │  vcs.xml
+│  │  workspace.xml
+│  │  
+│  ├─dataSources
+│  │  │  74d87594-fdbe-4a9f-803a-a1fab2679bef.xml
+│  │  │  
+│  │  └─74d87594-fdbe-4a9f-803a-a1fab2679bef
+│  │      └─storage_v2
+│  │          └─_src_
+│  │              └─schema
+│  │                      blockchain.VOLhTA.meta
+│  │                      information_schema.FNRwLQ.meta
+│  │                      information_schema.FNRwLQ.zip
+│  │                      mysql.osA4Bg.meta
+│  │                      openmeteo.fOPpXA.meta
+│  │                      performance_schema.kIw0nw.meta
+│  │                      sys.zb4BAA.meta
+│  │                      sys.zb4BAA.zip
+│  │                      test_db.Sws3qw.meta
+│  │                      tianrun.6VUKsQ.meta
+│  │                      tianrun_etrade.NUfvkw.meta
+│  │                      __cdb_recycle_bin__._fLpxA.meta
+│  │                      
+│  └─inspectionProfiles
+│          profiles_settings.xml
+│          Project_Default.xml
+│          
+├─data_acquisition
+│  │  README.md
+│  │  
+│  └─data_acquistion
+│      │  __init__.py
+│      │  
+│      ├─open_meteo
+│      │  │  cmaForcast2.py
+│      │  │  era5Forcast.py
+│      │  │  openMeteoForcast.py
+│      │  │  __init__.py
+│      │  │  
+│      │  └─__pycache__
+│      │          era5Forcast.cpython-312.pyc
+│      │          openMeteoForcast.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      └─__pycache__
+│              __init__.cpython-312.pyc
+│              
+├─data_utils
+│  │  README.md
+│  │  
+│  ├─.idea
+│  │  │  data_utils.iml
+│  │  │  modules.xml
+│  │  │  
+│  │  └─inspectionProfiles
+│  │          profiles_settings.xml
+│  │          Project_Default.xml
+│  │          
+│  └─data_utils
+│      │  __init__.py
+│      │  
+│      ├─open_data
+│      │  │  open_meteo.py
+│      │  │  __init__.py
+│      │  │  
+│      │  └─__pycache__
+│      │          open_meteo.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      ├─serial_utils
+│      │  │  data_series.py
+│      │  │  series_trans_utils.py
+│      │  │  timeTable.py
+│      │  │  time_series.py
+│      │  │  __init__.py
+│      │  │  
+│      │  └─__pycache__
+│      │          data_series.cpython-312.pyc
+│      │          series_trans_utils.cpython-312.pyc
+│      │          timeTable.cpython-312.pyc
+│      │          time_series.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      ├─solve_utils
+│      │  │  equationNSolve.py
+│      │  │  equationSloveOptimizer.py
+│      │  │  lossFunction.py
+│      │  │  __init__.py
+│      │  │  
+│      │  └─__pycache__
+│      │          equationNSolve.cpython-312.pyc
+│      │          equationSloveOptimizer.cpython-312.pyc
+│      │          lossFunction.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      ├─stochastic_utils
+│      │  │  __init__.py
+│      │  │  
+│      │  ├─distributions
+│      │  │  │  baseclass.py
+│      │  │  │  basic_distributions.py
+│      │  │  │  deform.py
+│      │  │  │  estimation.py
+│      │  │  │  nonParametricDistribution.py
+│      │  │  │  output_10_1.png
+│      │  │  │  output_4_0.png
+│      │  │  │  output_6_1.png
+│      │  │  │  output_8_0.png
+│      │  │  │  README.ipynb
+│      │  │  │  README.md
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  ├─.ipynb_checkpoints
+│      │  │  │      readme-checkpoint.ipynb
+│      │  │  │      
+│      │  │  ├─discrete
+│      │  │  │  │  basic.py
+│      │  │  │  │  __init__.py
+│      │  │  │  │  
+│      │  │  │  └─__pycache__
+│      │  │  │          basic.cpython-312.pyc
+│      │  │  │          __init__.cpython-312.pyc
+│      │  │  │          
+│      │  │  └─__pycache__
+│      │  │          baseclass.cpython-312.pyc
+│      │  │          basic_distributions.cpython-312.pyc
+│      │  │          deform.cpython-312.pyc
+│      │  │          estimation.cpython-312.pyc
+│      │  │          nonParametricDistribution.cpython-312.pyc
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  ├─random_process
+│      │  │  │  correlatedRandom.py
+│      │  │  │  timeseriesProcess.py
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  ├─timeSeriesProcess
+│      │  │  │  │  ar.py
+│      │  │  │  │  baseclass.py
+│      │  │  │  │  ma.py
+│      │  │  │  │  __init__.py
+│      │  │  │  │  
+│      │  │  │  └─__pycache__
+│      │  │  │          ar.cpython-312.pyc
+│      │  │  │          baseclass.cpython-312.pyc
+│      │  │  │          __init__.cpython-312.pyc
+│      │  │  │          
+│      │  │  └─__pycache__
+│      │  │          correlatedRandom.cpython-312.pyc
+│      │  │          timeseriesProcess.cpython-312.pyc
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  ├─vdistributions
+│      │  │  │  abstract.py
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  ├─nb
+│      │  │  ├─nonparametric
+│      │  │  │  │  __init__.py
+│      │  │  │  │  
+│      │  │  │  ├─continuous
+│      │  │  │  │  │  histogram.py
+│      │  │  │  │  │  kernel.py
+│      │  │  │  │  │  kernel2.py
+│      │  │  │  │  │  __init__.py
+│      │  │  │  │  │  
+│      │  │  │  │  ├─mfk
+│      │  │  │  │  │  │  nd.py
+│      │  │  │  │  │  │  skewnd.py
+│      │  │  │  │  │  │  skewnd2.py
+│      │  │  │  │  │  │  __init__.py
+│      │  │  │  │  │  │  
+│      │  │  │  │  │  └─__pycache__
+│      │  │  │  │  │          nd.cpython-312.pyc
+│      │  │  │  │  │          skewnd.cpython-312.pyc
+│      │  │  │  │  │          skewnd2.cpython-312.pyc
+│      │  │  │  │  │          __init__.cpython-312.pyc
+│      │  │  │  │  │          
+│      │  │  │  │  └─__pycache__
+│      │  │  │  │          histogram.cpython-312.pyc
+│      │  │  │  │          kernel.cpython-312.pyc
+│      │  │  │  │          kernel2.cpython-312.pyc
+│      │  │  │  │          __init__.cpython-312.pyc
+│      │  │  │  │          
+│      │  │  │  ├─discrete
+│      │  │  │  │  │  basic.py
+│      │  │  │  │  │  __init__.py
+│      │  │  │  │  │  
+│      │  │  │  │  └─__pycache__
+│      │  │  │  │          basic.cpython-312.pyc
+│      │  │  │  │          __init__.cpython-312.pyc
+│      │  │  │  │          
+│      │  │  │  └─__pycache__
+│      │  │  │          __init__.cpython-312.pyc
+│      │  │  │          
+│      │  │  ├─parameter
+│      │  │  │  │  abstract.py
+│      │  │  │  │  __init__.py
+│      │  │  │  │  
+│      │  │  │  ├─continuous
+│      │  │  │  │  │  basic.py
+│      │  │  │  │  │  heavytail.py
+│      │  │  │  │  │  lifetime.py
+│      │  │  │  │  │  uniform.py
+│      │  │  │  │  │  __init__.py
+│      │  │  │  │  │  
+│      │  │  │  │  ├─kernel
+│      │  │  │  │  │  │  gaussian.py
+│      │  │  │  │  │  │  __init__.py
+│      │  │  │  │  │  │  
+│      │  │  │  │  │  └─__pycache__
+│      │  │  │  │  │          gaussian.cpython-312.pyc
+│      │  │  │  │  │          __init__.cpython-312.pyc
+│      │  │  │  │  │          
+│      │  │  │  │  └─__pycache__
+│      │  │  │  │          basic.cpython-312.pyc
+│      │  │  │  │          heavytail.cpython-312.pyc
+│      │  │  │  │          lifetime.cpython-312.pyc
+│      │  │  │  │          uniform.cpython-312.pyc
+│      │  │  │  │          __init__.cpython-312.pyc
+│      │  │  │  │          
+│      │  │  │  ├─discrete
+│      │  │  │  │      __init__.py
+│      │  │  │  │      
+│      │  │  │  └─__pycache__
+│      │  │  │          abstract.cpython-312.pyc
+│      │  │  │          __init__.cpython-312.pyc
+│      │  │  │          
+│      │  │  ├─tools
+│      │  │  │  │  clip.py
+│      │  │  │  │  convert.py
+│      │  │  │  │  divergence.py
+│      │  │  │  │  __init__.py
+│      │  │  │  │  
+│      │  │  │  └─__pycache__
+│      │  │  │          clip.cpython-312.pyc
+│      │  │  │          convert.cpython-312.pyc
+│      │  │  │          divergence.cpython-312.pyc
+│      │  │  │          __init__.cpython-312.pyc
+│      │  │  │          
+│      │  │  └─__pycache__
+│      │  │          abstract.cpython-312.pyc
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  └─__pycache__
+│      │          __init__.cpython-312.pyc
+│      │          
+│      └─__pycache__
+│              __init__.cpython-312.pyc
+│              
+├─easy_datetime
+│  │  LICENSE
+│  │  readme.ipynb
+│  │  README.md
+│  │  
+│  ├─.idea
+│  │  │  .gitignore
+│  │  │  easy_datetime.iml
+│  │  │  misc.xml
+│  │  │  modules.xml
+│  │  │  vcs.xml
+│  │  │  
+│  │  └─inspectionProfiles
+│  │          profiles_settings.xml
+│  │          Project_Default.xml
+│  │          
+│  ├─.ipynb_checkpoints
+│  │      readme-checkpoint.ipynb
+│  │      
+│  └─easy_datetime
+│      │  temporal_utils.py
+│      │  timestamp.py
+│      │  __init__.py
+│      │  
+│      └─__pycache__
+│              temporal_utils.cpython-312.pyc
+│              timestamp.cpython-312.pyc
+│              __init__.cpython-312.pyc
+│              
+├─easy_utils
+│  │  LICENSE
+│  │  README.md
+│  │  requirements.txt
+│  │  
+│  ├─.idea
+│  │  │  easy_utils.iml
+│  │  │  modules.xml
+│  │  │  vcs.xml
+│  │  │  workspace.xml
+│  │  │  
+│  │  └─inspectionProfiles
+│  │          profiles_settings.xml
+│  │          Project_Default.xml
+│  │          
+│  └─easy_utils
+│      │  __init__.py
+│      │  
+│      ├─db_utils
+│      │  │  mysql.py
+│      │  │  __init__.py
+│      │  │  
+│      │  └─__pycache__
+│      │          mysql.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      ├─number_utils
+│      │  │  calculus_utils.py
+│      │  │  float_utils.py
+│      │  │  number_utils.py
+│      │  │  __init__.py
+│      │  │  
+│      │  └─__pycache__
+│      │          calculus_utils.cpython-312.pyc
+│      │          float_utils.cpython-312.pyc
+│      │          number_utils.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      ├─obj_utils
+│      │  │  enumerable_utils.py
+│      │  │  __init__.py
+│      │  │  
+│      │  └─__pycache__
+│      │          enumerable_utils.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      └─__pycache__
+│              __init__.cpython-312.pyc
+│              
+├─etrade
+│  │  LICENSE
+│  │  README.md
+│  │  
+│  └─etrade
+│      │  __init__.py
+│      │  
+│      ├─spot
+│      │  │  trader.py
+│      │  │  __init__.py
+│      │  │  
+│      │  ├─forecast
+│      │  │  │  market.py
+│      │  │  │  yieldindex.py
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  ├─plan_a
+│      │  │  │  │  constructor.py
+│      │  │  │  │  constructor2.py
+│      │  │  │  │  simulator.py
+│      │  │  │  │  __init__.py
+│      │  │  │  │  
+│      │  │  │  ├─data
+│      │  │  │  │      market_simulator.json
+│      │  │  │  │      
+│      │  │  │  └─__pycache__
+│      │  │  │          constructor.cpython-312.pyc
+│      │  │  │          __init__.cpython-312.pyc
+│      │  │  │          
+│      │  │  └─__pycache__
+│      │  │          market.cpython-312.pyc
+│      │  │          yieldindex.cpython-312.pyc
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  ├─market
+│      │  │  │  recycle.py
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  └─__pycache__
+│      │  │          recycle.cpython-312.pyc
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  ├─nb
+│      │  │      nb1.ipynb
+│      │  │      nb2.ipynb
+│      │  │      nb3.ipynb
+│      │  │      nb4.ipynb
+│      │  │      nb5.ipynb
+│      │  │      nb6.py
+│      │  │      
+│      │  ├─resource
+│      │  │  │  namedtuple.py
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  └─__pycache__
+│      │  │          namedtuple.cpython-312.pyc
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  └─__pycache__
+│      │          trader.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      └─__pycache__
+│              __init__.cpython-312.pyc
+│              
+├─finance_utils
+│  │  LICENSE
+│  │  README.md
+│  │  
+│  ├─electrical
+│  │  │  __init__.py
+│  │  │  
+│  │  ├─china
+│  │  │  │  __init__.py
+│  │  │  │  
+│  │  │  ├─spot
+│  │  │  │  │  __init__.py
+│  │  │  │  │  
+│  │  │  │  ├─data
+│  │  │  │  │      shanxi_spot_8-11.json
+│  │  │  │  │      
+│  │  │  │  ├─discrete
+│  │  │  │  │  │  forecast_interface.py
+│  │  │  │  │  │  probabilistic_forecast.py
+│  │  │  │  │  │  testback.py
+│  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  
+│  │  │  │  │  └─__pycache__
+│  │  │  │  │          probabilistic_forecast.cpython-312.pyc
+│  │  │  │  │          testback.cpython-312.pyc
+│  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │          
+│  │  │  │  ├─economics
+│  │  │  │  │      sdm.py
+│  │  │  │  │      __init__.py
+│  │  │  │  │      
+│  │  │  │  ├─measure
+│  │  │  │  │  │  trade.py
+│  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  
+│  │  │  │  │  ├─internal
+│  │  │  │  │  │  │  forecast.py
+│  │  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  │  
+│  │  │  │  │  │  └─__pycache__
+│  │  │  │  │  │          forecast.cpython-312.pyc
+│  │  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │  │          
+│  │  │  │  │  └─__pycache__
+│  │  │  │  │          trade.cpython-312.pyc
+│  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │          
+│  │  │  │  ├─notebooks
+│  │  │  │  │      nb1.ipynb
+│  │  │  │  │      nb2.ipynb
+│  │  │  │  │      nb3.ipynb
+│  │  │  │  │      nb4.ipynb
+│  │  │  │  │      nb5.ipynb
+│  │  │  │  │      nb6.ipynb
+│  │  │  │  │      nb7.ipynb
+│  │  │  │  │      
+│  │  │  │  ├─rule
+│  │  │  │  │  │  recycle.py
+│  │  │  │  │  │  settlement.py
+│  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  
+│  │  │  │  │  └─__pycache__
+│  │  │  │  │          recycle.cpython-312.pyc
+│  │  │  │  │          settlement.cpython-312.pyc
+│  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │          
+│  │  │  │  └─__pycache__
+│  │  │  │          __init__.cpython-312.pyc
+│  │  │  │          
+│  │  │  └─__pycache__
+│  │  │          __init__.cpython-312.pyc
+│  │  │          
+│  │  └─__pycache__
+│  │          __init__.cpython-312.pyc
+│  │          
+│  ├─electrical2
+│  │  │  __init__.py
+│  │  │  
+│  │  ├─spot
+│  │  │  │  __init__.py
+│  │  │  │  
+│  │  │  ├─historical
+│  │  │  │      __init__.py
+│  │  │  │      
+│  │  │  ├─market
+│  │  │  │      __init__.py
+│  │  │  │      
+│  │  │  ├─notebooks
+│  │  │  │      nb.ipynb
+│  │  │  │      
+│  │  │  ├─probabilistic
+│  │  │  │  │  curve.py
+│  │  │  │  │  market.py
+│  │  │  │  │  __init__.py
+│  │  │  │  │  
+│  │  │  │  ├─forecast
+│  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  
+│  │  │  │  │  ├─datasource
+│  │  │  │  │  │  │  downloader.py
+│  │  │  │  │  │  │  pfd_and_new_energy.py
+│  │  │  │  │  │  │  pfd_and_new_energy2.py
+│  │  │  │  │  │  │  xinzhi_forecast_data.py
+│  │  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  │  
+│  │  │  │  │  │  └─__pycache__
+│  │  │  │  │  │          pfd_and_new_energy.cpython-312.pyc
+│  │  │  │  │  │          pfd_and_new_energy2.cpython-312.pyc
+│  │  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │  │          
+│  │  │  │  │  ├─notebook
+│  │  │  │  │  │      fnb1.ipynb
+│  │  │  │  │  │      nb4.ipynb
+│  │  │  │  │  │      vtnb2.ipynb
+│  │  │  │  │  │      vtnb3.ipynb
+│  │  │  │  │  │      
+│  │  │  │  │  ├─power
+│  │  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  │  
+│  │  │  │  │  │  ├─data
+│  │  │  │  │  │  │  │  fortorch.py
+│  │  │  │  │  │  │  │  holiday.py
+│  │  │  │  │  │  │  │  meteo.py
+│  │  │  │  │  │  │  │  meteo2.py
+│  │  │  │  │  │  │  │  tr.py
+│  │  │  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  │  │  
+│  │  │  │  │  │  │  └─__pycache__
+│  │  │  │  │  │  │          meteo.cpython-312.pyc
+│  │  │  │  │  │  │          meteo2.cpython-312.pyc
+│  │  │  │  │  │  │          tr.cpython-312.pyc
+│  │  │  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │  │  │          
+│  │  │  │  │  │  ├─forecast
+│  │  │  │  │  │  │  │  gridtwicecook.py
+│  │  │  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  │  │  
+│  │  │  │  │  │  │  └─__pycache__
+│  │  │  │  │  │  │          gridtwicecook.cpython-312.pyc
+│  │  │  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │  │  │          
+│  │  │  │  │  │  ├─nb
+│  │  │  │  │  │  │      nb1.ipynb
+│  │  │  │  │  │  │      nb2.ipynb
+│  │  │  │  │  │  │      nb3.ipynb
+│  │  │  │  │  │  │      tnb1.ipynb
+│  │  │  │  │  │  │      tnb2.ipynb
+│  │  │  │  │  │  │      vtnb3.ipynb
+│  │  │  │  │  │  │      
+│  │  │  │  │  │  └─__pycache__
+│  │  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │  │          
+│  │  │  │  │  ├─torch
+│  │  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  │  
+│  │  │  │  │  │  ├─lstm
+│  │  │  │  │  │  │  │  vanilla.py
+│  │  │  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  │  │  
+│  │  │  │  │  │  │  └─__pycache__
+│  │  │  │  │  │  │          vanilla.cpython-312.pyc
+│  │  │  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │  │  │          
+│  │  │  │  │  │  ├─normalization
+│  │  │  │  │  │  │  │  basic.py
+│  │  │  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  │  │  
+│  │  │  │  │  │  │  └─__pycache__
+│  │  │  │  │  │  │          basic.cpython-312.pyc
+│  │  │  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │  │  │          
+│  │  │  │  │  │  ├─transformer
+│  │  │  │  │  │  │  │  vanilla.py
+│  │  │  │  │  │  │  │  vanilla2.py
+│  │  │  │  │  │  │  │  vanilla_batch_first.py
+│  │  │  │  │  │  │  │  vanilla_encoder.py
+│  │  │  │  │  │  │  │  __init__.py
+│  │  │  │  │  │  │  │  
+│  │  │  │  │  │  │  └─__pycache__
+│  │  │  │  │  │  │          vanilla.cpython-312.pyc
+│  │  │  │  │  │  │          vanilla2.cpython-312.pyc
+│  │  │  │  │  │  │          vanilla_encoder.cpython-312.pyc
+│  │  │  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │  │  │          
+│  │  │  │  │  │  └─__pycache__
+│  │  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │  │          
+│  │  │  │  │  └─__pycache__
+│  │  │  │  │          __init__.cpython-312.pyc
+│  │  │  │  │          
+│  │  │  │  └─__pycache__
+│  │  │  │          curve.cpython-312.pyc
+│  │  │  │          market.cpython-312.pyc
+│  │  │  │          __init__.cpython-312.pyc
+│  │  │  │          
+│  │  │  ├─rule
+│  │  │  │  │  recycle.py
+│  │  │  │  │  settlement.py
+│  │  │  │  │  __init__.py
+│  │  │  │  │  
+│  │  │  │  └─__pycache__
+│  │  │  │          recycle.cpython-312.pyc
+│  │  │  │          settlement.cpython-312.pyc
+│  │  │  │          __init__.cpython-312.pyc
+│  │  │  │          
+│  │  │  ├─testback
+│  │  │  │      __init__.py
+│  │  │  │      
+│  │  │  ├─trade
+│  │  │  │      __init__.py
+│  │  │  │      
+│  │  │  └─__pycache__
+│  │  │          __init__.cpython-312.pyc
+│  │  │          
+│  │  └─__pycache__
+│  │          __init__.cpython-312.pyc
+│  │          
+│  └─finance_utils
+│      │  namedtuples.py
+│      │  uniontypes.py
+│      │  __init__.py
+│      │  
+│      ├─asset
+│      │  │  base.py
+│      │  │  __init__.py
+│      │  │  
+│      │  ├─bond
+│      │  │      base.py
+│      │  │      __init__.py
+│      │  │      
+│      │  ├─derivative
+│      │  │      __init__.py
+│      │  │      
+│      │  ├─spot
+│      │  │  │  base.py
+│      │  │  │  strategy.py
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  ├─nb
+│      │  │  │      nb1.ipynb
+│      │  │  │      nb2.ipynb
+│      │  │  │      nb3.ipynb
+│      │  │  │      nb4.ipynb
+│      │  │  │      nb5.ipynb
+│      │  │  │      nb6.ipynb
+│      │  │  │      
+│      │  │  └─__pycache__
+│      │  │          base.cpython-312.pyc
+│      │  │          strategy.cpython-312.pyc
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  └─__pycache__
+│      │          base.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      ├─currency
+│      │      base.py
+│      │      __init__.py
+│      │      
+│      ├─process
+│      │  │  __init__.py
+│      │  │  
+│      │  ├─prices
+│      │  │  │  base.py
+│      │  │  │  gbm.py
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  └─__pycache__
+│      │  │          base.cpython-312.pyc
+│      │  │          gbm.cpython-312.pyc
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  └─__pycache__
+│      │          __init__.cpython-312.pyc
+│      │          
+│      ├─strategy
+│      │  │  dca.py
+│      │  │  __init__.py
+│      │  │  
+│      │  └─__pycache__
+│      │          dca.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      ├─trader
+│      │  │  base.py
+│      │  │  utility.py
+│      │  │  __init__.py
+│      │  │  
+│      │  └─__pycache__
+│      │          base.cpython-312.pyc
+│      │          utility.cpython-312.pyc
+│      │          __init__.cpython-312.pyc
+│      │          
+│      └─__pycache__
+│              namedtuples.cpython-312.pyc
+│              uniontypes.cpython-312.pyc
+│              __init__.cpython-312.pyc
+│              
+├─ide_settings
+│      pycharm.icls
+│      pypi_get2fa.py
+│      README.md
+│      settings.zip
+│      拉取远程.bat
+│      提交from office.bat
+│      新建 文本文档.rar
+│      
+├─papers
+│  ├─A Pricing Method for Wind Speed Fluctuation Insurance
+│  │  │  14172_232_1.pdf
+│  │  │  7c.png
+│  │  │  7C2.png
+│  │  │  A Pricing Method for A new type of Meteorological Index Insurance.pdf
+│  │  │  A Pricing Method for Wind Speed Fluctuation Insurance(b).docx
+│  │  │  A Pricing Method for Wind Speed Fluctuation Insurance(b).pdf
+│  │  │  A Pricing Method for Wind Speed Fluctuation Insurance(c).docx
+│  │  │  A Pricing Method for Wind Speed Fluctuation Insurance(c).pdf
+│  │  │  A Pricing Method for Wind Speed Fluctuation Insurance.doc
+│  │  │  A Pricing Method for Wind Speed Fluctuation Insurance.docx
+│  │  │  A Pricing Method for Wind Speed Fluctuation Insurance.pdf
+│  │  │  A+Method+for+Generating+Wind+Speed+Time+Series+Data+That+Effectively+Maintains+Both+Temporal+Dependence+and+Cross-Correlation+Characteristics(refix)(refix)(refix)(refix).docx
+│  │  │  A+Method+for+Generating+Wind+Speed+Time+Series+Data+That+Effectively+Maintains+Both+Temporal+Dependence+and+Cross-Correlation+Characteristics(refix)(refix)(refix)(refix).pdf
+│  │  │  A+Method+for+Generating+Wind+Speed+Time+Series+Data+That+Effectively+Maintains+Both+Temporal+Dependence+and+Cross-Correlation+Characteristics(refix)(refix)(refix).docx
+│  │  │  A+Method+for+Generating+Wind+Speed+Time+Series+Data+That+Effectively+Maintains+Both+Temporal+Dependence+and+Cross-Correlation+Characteristics(refix)(refix)(refix).pdf
+│  │  │  A+Pricing+Method+for+Wind+Speed+Fluctuation+Insurance(c2).docx
+│  │  │  A+Pricing+Method+for+Wind+Speed+Fluctuation+Insurance(c2b).docx
+│  │  │  A+Pricing+Method+for+Wind+Speed+Fluctuation+Insurance(c2b).pdf
+│  │  │  A_methodology_to_generate_statistically.pdf
+│  │  │  d.png
+│  │  │  d2.png
+│  │  │  Da Shan Tai.png
+│  │  │  Da Shan Tai2.png
+│  │  │  dashantai.png
+│  │  │  direction.png
+│  │  │  direction2.png
+│  │  │  direction3.png
+│  │  │  DST.png
+│  │  │  DST2.png
+│  │  │  grid.png
+│  │  │  iccsmt2024-232.zip
+│  │  │  Jiang Jia Ping.png
+│  │  │  Jiang Jia Ping2.png
+│  │  │  jiangjiaping.png
+│  │  │  JJP.png
+│  │  │  Liu Long Gou.png
+│  │  │  Liu Long Gou2.png
+│  │  │  liulonggou.png
+│  │  │  LLG.png
+│  │  │  montecarlo.png
+│  │  │  nb1.ipynb
+│  │  │  payoff.png
+│  │  │  payoff2.png
+│  │  │  README.md
+│  │  │  Tao Hua Shan.png
+│  │  │  Tao Hua Shan2.png
+│  │  │  taohuashan.png
+│  │  │  THS.png
+│  │  │  vpi.png
+│  │  │  Wind+Speed+Generating+Method(refix-2024-10-18).docx
+│  │  │  Wind+Speed+Generating+Method(refix-2024-10-18).pdf
+│  │  │  __init__.py
+│  │  │  数据预览_.png
+│  │  │  未命名-1.nb
+│  │  │  未命名-2.nb
+│  │  │  
+│  │  ├─iccsmt2024-232
+│  │  │  ├─PDF
+│  │  │  │      iccsmt2024-232.pdf
+│  │  │  │      
+│  │  │  ├─Source
+│  │  │  │      iccsmt2024-232.docx
+│  │  │  │      
+│  │  │  └─Supplements
+│  │  └─墙报
+│  │          data.png
+│  │          fit.png
+│  │          grid.png
+│  │          payoff.png
+│  │          test.png
+│  │          非平稳.png
+│  │          
+│  ├─dcas
+│  │      splnproc1703.docx
+│  │      The Dynamic Relationship Between Market Volatility and Dollar Cost Averaging Strategy Returns.docx
+│  │      The Dynamic Relationship Between Market Volatility and Dollar Cost Averaging Strategy Returns.pdf
+│  │      ~$e Dynamic Relationship Between Market Volatility and Dollar Cost Averaging Strategy Returns.docx
+│  │      ~WRL0645.tmp
+│  │      未命名-1.nb
+│  │      未命名-1.pdf
+│  │      未命名-2.pdf
+│  │      
+│  ├─espot
+│  │  │  Statistical Arbitrage in Electricity Spot Markets.docx
+│  │  │  Statistical Arbitrage in Electricity Spot Markets.pdf
+│  │  │  
+│  │  ├─834758a1cfb7cff4f1dd5c3bcfe7ee3d
+│  │  │  └─Template
+│  │  │          CN-Template-E3S-SHS.docx
+│  │  │          EN-Template-E3S-SHS.doc
+│  │  │          
+│  │  └─nb
+│  │      │  nb1.ipynb
+│  │      │  
+│  │      └─.ipynb_checkpoints
+│  │              nb1-checkpoint.ipynb
+│  │              
+│  ├─help
+│  │  │  2SutunluBilimselSablon (1).doc
+│  │  │  Electricity Price-Driven Station Value Evaluation and Optimization Model.docx
+│  │  │  Electricity Price-Driven Station Value Evaluation and Optimization Model.pdf
+│  │  │  Electricity Price-Driven Station Value Evaluation and Optimization Model2.docx
+│  │  │  Electricity Price-Driven Station Value Evaluation and Optimization Model2.pdf
+│  │  │  nb1.ipynb
+│  │  │  现货模式下新能源场站价值测算模型.doc
+│  │  │  现货模式下新能源场站价值测算模型.docx
+│  │  │  现货模式下新能源场站价值测算模型报告.docx
+│  │  │  
+│  │  ├─8de3a1ba00cb7caa62f0d07e71f746a5 (1)
+│  │  │  └─Template
+│  │  │          关于学术会议投稿须知.pdf
+│  │  │          文件1：Checking list（论文投稿自检清单）.docx
+│  │  │          文件2：Word+Template.zip
+│  │  │          
+│  │  └─nb
+│  │          fdw.json
+│  │          nb1.ipynb
+│  │          nb2.ipynb
+│  │          
+│  └─story
+│          设定对话1.txt
+│          
+├─private
+│  │  .gitignore
+│  │  
+│  └─private
+│      │  db.py
+│      │  __init__.py
+│      │  
+│      ├─db
+│      │  │  __init__.py
+│      │  │  
+│      │  ├─tencnet
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  ├─blockchain
+│      │  │  │      __init__.py
+│      │  │  │      
+│      │  │  ├─openmeteo
+│      │  │  │  │  china_opemmeteo_forecast2.py
+│      │  │  │  │  china_openmeteo_forecast3.py
+│      │  │  │  │  china_weather_forecast.py
+│      │  │  │  │  __init__.py
+│      │  │  │  │  
+│      │  │  │  ├─data
+│      │  │  │  │      2024-11-29.pfd
+│      │  │  │  │      china_cma.pfd
+│      │  │  │  │      china_ecmwf.pfd
+│      │  │  │  │      shanxi_1.pfd
+│      │  │  │  │      shanxi_2024-10-01_v7.pfd
+│      │  │  │  │      shanxi_2024-10-02_v7.pfd
+│      │  │  │  │      shanxi_2024-10-03_v7.pfd
+│      │  │  │  │      shanxi_2024-10-04_v7.pfd
+│      │  │  │  │      shanxi_2024-10-05_v7.pfd
+│      │  │  │  │      shanxi_2024-10-06_v7.pfd
+│      │  │  │  │      shanxi_2024-10-07_v7.pfd
+│      │  │  │  │      shanxi_2024-10-08_v7.pfd
+│      │  │  │  │      shanxi_2024-10-09_v7.pfd
+│      │  │  │  │      shanxi_2024-10-10_v7.pfd
+│      │  │  │  │      test_cma.pfd
+│      │  │  │  │      test_ecmwf.pfd
+│      │  │  │  │      
+│      │  │  │  └─__pycache__
+│      │  │  │          china_opemmeteo_forecast2.cpython-312.pyc
+│      │  │  │          china_openmeteo_forecast3.cpython-312.pyc
+│      │  │  │          china_weather_forecast.cpython-312.pyc
+│      │  │  │          __init__.cpython-312.pyc
+│      │  │  │          
+│      │  │  └─__pycache__
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  ├─tianrun
+│      │  │  │  __init__.py
+│      │  │  │  
+│      │  │  ├─spot
+│      │  │  │  │  __init__.py
+│      │  │  │  │  
+│      │  │  │  ├─fdw
+│      │  │  │  │  │  new_energy_actual_power.py
+│      │  │  │  │  │  xinzhi_new_energy_forecast_power.py
+│      │  │  │  │  │  __init__.py
+│      │  │  │  │  │  
+│      │  │  │  │  └─__pycache__
+│      │  │  │  │          new_energy_actual_power.cpython-312.pyc
+│      │  │  │  │          xinzhi_new_energy_forecast_power.cpython-312.pyc
+│      │  │  │  │          __init__.cpython-312.pyc
+│      │  │  │  │          
+│      │  │  │  └─__pycache__
+│      │  │  │          __init__.cpython-312.pyc
+│      │  │  │          
+│      │  │  └─__pycache__
+│      │  │          __init__.cpython-312.pyc
+│      │  │          
+│      │  └─__pycache__
+│      │          __init__.cpython-312.pyc
+│      │          
+│      └─__pycache__
+│              db.cpython-312.pyc
+│              __init__.cpython-312.pyc
+│              
+└─tentative
+    │  README.md
+    │  
+    └─tentative
+        │  __init__.py
+        │  
+        └─forecast
+            │  __init__.py
+            │  
+            └─newenergy
+                │  __init__.py
+                │  
+                └─data
+                        __init__.py
+                        

@@ -1,0 +1,81 @@
+卷 代码 的文件夹 PATH 列表
+卷序列号为 50E3-DCDE
+E:.
+│  LICENSE
+│  output.txt
+│  README.md
+│  
+└─etrade
+    │  __init__.py
+    │  
+    ├─spot
+    │  │  trader.py
+    │  │  __init__.py
+    │  │  
+    │  ├─forecast
+    │  │  │  market.py
+    │  │  │  yieldindex.py
+    │  │  │  __init__.py
+    │  │  │  
+    │  │  ├─plan_a
+    │  │  │  │  constructor.py
+    │  │  │  │  constructor2.py
+    │  │  │  │  simulator.py
+    │  │  │  │  transformer.py
+    │  │  │  │  __init__.py
+    │  │  │  │  
+    │  │  │  ├─data
+    │  │  │  │      market_simulator.json
+    │  │  │  │      market_simulator_1.json
+    │  │  │  │      market_simulator_2.json
+    │  │  │  │      market_simulator_3.json
+    │  │  │  │      market_simulator_4.json
+    │  │  │  │      
+    │  │  │  └─__pycache__
+    │  │  │          constructor.cpython-312.pyc
+    │  │  │          simulator.cpython-312.pyc
+    │  │  │          transformer.cpython-312.pyc
+    │  │  │          __init__.cpython-312.pyc
+    │  │  │          
+    │  │  └─__pycache__
+    │  │          market.cpython-312.pyc
+    │  │          yieldindex.cpython-312.pyc
+    │  │          __init__.cpython-312.pyc
+    │  │          
+    │  ├─market
+    │  │  │  recycle.py
+    │  │  │  __init__.py
+    │  │  │  
+    │  │  └─__pycache__
+    │  │          recycle.cpython-312.pyc
+    │  │          __init__.cpython-312.pyc
+    │  │          
+    │  ├─nb
+    │  │  │  nb1.ipynb
+    │  │  │  nb2.ipynb
+    │  │  │  nb3.ipynb
+    │  │  │  nb4.ipynb
+    │  │  │  nb5.ipynb
+    │  │  │  nb6.ipynb
+    │  │  │  nb6b.ipynb
+    │  │  │  nb7.ipynb
+    │  │  │  simulator_test.py
+    │  │  │  
+    │  │  └─.ipynb_checkpoints
+    │  │          nb7-checkpoint.ipynb
+    │  │          
+    │  ├─resource
+    │  │  │  namedtuple.py
+    │  │  │  __init__.py
+    │  │  │  
+    │  │  └─__pycache__
+    │  │          namedtuple.cpython-312.pyc
+    │  │          __init__.cpython-312.pyc
+    │  │          
+    │  └─__pycache__
+    │          trader.cpython-312.pyc
+    │          __init__.cpython-312.pyc
+    │          
+    └─__pycache__
+            __init__.cpython-312.pyc
+            

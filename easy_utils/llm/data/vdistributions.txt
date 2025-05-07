@@ -1,0 +1,2311 @@
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\abstract.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+from abc import ABC, abstractmethod
+
+import numpy
+# 项目模块
+
+# 外部模块
+import numpy as np
+from scipy.integrate import quad
+
+# 代码块
+eps = np.finfo(float).eps
+
+
+class AbstractDistribution(ABC):
+    """概率分布(抽象类)"""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def clone(self) -> Self:
+        """自身的深度复制"""
+        return copy.deepcopy(self)
+
+    @abstractmethod
+    def __str__(self):
+        pass
+
+    @abstractmethod
+    def __repr__(self):
+        pass
+
+    @abstractmethod
+    def ppf(self, *args, **kwargs) -> Union[float, numpy.ndarray]:
+        """分位数函数"""
+        pass
+
+    @abstractmethod
+    def pdf(self, *args, **kwargs) -> Union[float, numpy.ndarray]:
+        """概率密度函数"""
+        pass
+
+    @abstractmethod
+    def cdf(self, *args, **kwargs) -> Union[float, numpy.ndarray]:
+        """累计概率函数"""
+        pass
+
+    def domain(self):
+        """定义域"""
+        nt = namedtuple("nt", ["min", "max"])
+        p = self.ppf([eps, 1 - eps])
+        return nt(p[0], p[1])
+
+    def curves(self, num: int = 100, tail_eps: float = eps):
+        """ppf, pdf, cdf曲线"""
+        x = numpy.linspace(tail_eps, 1 - tail_eps, num)
+        ppf_curve = numpy.column_stack((
+            x, self.ppf(x)
+        ))
+        pdf_curve = numpy.column_stack((
+            ppf_curve[:, 1],
+            self.pdf(ppf_curve[:, 1])
+        ))
+        cdf_curve = numpy.column_stack((
+            ppf_curve[:, 1],
+            self.cdf(ppf_curve[:, 1])
+        ))
+        return ppf_curve, pdf_curve, cdf_curve
+
+    def rvf(self, num: int = 1):
+        """随机函数"""
+        seed = np.random.uniform(0 + eps, 1, size=num)
+        return self.ppf(seed)
+
+    def rvf_scalar(self):
+        """生成一个随机数标量"""
+        return self.rvf(1)[0]
+
+    def mean_integral(self) -> float:
+        """均值"""
+        a, b = self.domain()
+        return quad(lambda x: x * self.pdf(x), a, b)[0]
+
+    def variance_integral(self) -> float:
+        """方差"""
+        a, b = self.domain()
+        mu = self.mean_integral()
+        return quad(lambda x: (x - mu) ** 2 * self.pdf(x), a, b)[0]
+
+    def skewness_integral(self) -> float:
+        """偏度"""
+        a, b = self.domain()
+        mu = self.mean_integral()
+        sigma = numpy.sqrt(self.variance_integral())
+        return quad(lambda x: ((x - mu) / sigma) ** 3 * self.pdf(x), a, b)[0]
+
+    def kurtosis_integral(self) -> float:
+        """峰度"""
+        a, b = self.domain()
+        mu = self.mean_integral()
+        sigma = numpy.sqrt(self.variance_integral())
+        return quad(lambda x: ((x - mu) / sigma) ** 4 * self.pdf(x), a, b)[0]
+
+    def moment_integral(self) -> numpy.ndarray:
+        """矩"""
+        return numpy.asarray(
+            [self.mean_integral(), self.variance_integral(), self.skewness_integral(), self.kurtosis_integral()])
+
+
+if __name__ == "__main__":
+    pass
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\nonparametric\continuous\histogram.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+
+# 外部模块
+import numpy
+from scipy.interpolate import interp1d
+
+
+# 代码块
+
+def freedman_diaconis(data) -> int:
+    """
+    Freedman-Diaconis 方法
+    """
+    data = numpy.asarray(data)
+    q25, q75 = numpy.percentile(data, [25, 75])
+    n = data.size
+    bin_width = 2 * (q75 - q25) / numpy.cbrt(n)
+    if bin_width == 0:
+        return 1
+    else:
+        bin_count = int((numpy.max(data) - numpy.min(data)) / bin_width)
+        return bin_count if bin_count < n / 2 else int(n ** 0.5)
+
+
+class HistogramDistribution(AbstractDistribution):
+    """直方图分布"""
+
+    def __init__(self, data, bin_count: int = None):
+        super().__init__()
+        data = numpy.asarray(data)
+        self.bin_count = freedman_diaconis(data) if bin_count is None else bin_count
+        self.his_y, self.his_x = numpy.histogram(data, bins=self.bin_count, density=False)
+        probs = self.his_y / len(data)
+        accumulation_his = numpy.concatenate([[0], numpy.cumsum(probs)])
+        self.his_curve = interp1d(self.his_x, accumulation_his, bounds_error=False, fill_value=(0, 1))
+        self.his_icurve = interp1d(accumulation_his, self.his_x, bounds_error=False, fill_value=(numpy.nan, numpy.nan))
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.bin_count})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.bin_count})
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            (x > 0) & (x < 1),
+            self.his_icurve(x),
+            numpy.nan
+        )
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            x < self.his_x[0],
+            0,
+            numpy.where(
+                x > self.his_x[-1],
+                1,
+                self.his_curve(x)
+            )
+        )
+        return r
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        dy = self.cdf(x + eps) - self.cdf(x - eps)
+        dx = 2 * eps
+        r = numpy.where(
+            dy > 0,
+            dy / dx,
+            eps
+        )
+        return r
+
+
+class LogHistogramDistribution(AbstractDistribution):
+    """对数直方图分布"""
+
+    def __init__(self, data, bin_count: int = None):
+        super().__init__()
+        data = numpy.asarray(data)
+        self.diff = 1 - numpy.min(data)
+        log_data = numpy.log(data + self.diff)
+        self.his_dist = HistogramDistribution(log_data, bin_count)
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.his_dist.bin_count})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.his_dist.bin_count})
+
+    def ppf(self, x, *args, **kwargs):
+        return numpy.e ** self.his_dist.ppf(x) - self.diff
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x) + self.diff
+        return self.his_dist.pdf(numpy.log(x)) / x
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x) + self.diff
+        return self.his_dist.cdf(numpy.log(x))
+
+
+if __name__ == "__main__":
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.lifetime import WeibullDistribution
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+    from matplotlib import pyplot
+
+    data = WeibullDistribution(2, 5).rvf(1000)
+    pyplot.scatter(WeibullDistribution(2, 5).curves(1000)[2][:, 0],
+                   WeibullDistribution(2, 5).curves(1000)[2][:, 1])
+    pyplot.scatter(HistogramDistribution(data).curves(1000)[2][:, 0],
+                   HistogramDistribution(data).curves(1000)[2][:, 1])
+    pyplot.show()
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\nonparametric\continuous\kernel.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from easy_utils.number_utils.calculus_utils import newton_method
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.histogram import HistogramDistribution, \
+    freedman_diaconis
+
+# 外部模块
+from scipy.stats import t, iqr
+from scipy.interpolate import interp1d
+import numpy
+
+
+# 代码块
+
+def silverman_bandwidth(data) -> float:
+    """
+    Silverman 规则
+    """
+    data = numpy.asarray(data)
+    n = data.size
+    std_dev = numpy.std(data, ddof=1)
+    ir = iqr(data)
+
+    h = 0.9 * numpy.min([std_dev, ir / 1.34]) * n ** (-0.2)
+
+    return h
+
+
+class GaussianKernel(NormalDistribution):
+    """
+    高斯核
+    """
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        return numpy.exp(-((x - self.mu) ** 2) / (2 * self.sigma ** 2)) / (self.sigma * numpy.sqrt(2 * numpy.pi))
+        # return numpy.exp(-((x - self.mu) ** 2 / (2 * self.sigma ** 2))) / numpy.sqrt(2 * numpy.pi)
+
+
+class KernelMixDistribution(AbstractDistribution):
+    """混合核分布"""
+
+    def __init__(self, data, kernel_num: int = None):
+        super().__init__()
+        data = numpy.sort(numpy.asarray(data))
+        self.len = data.size
+        kernel_num = freedman_diaconis(data) if kernel_num is None else kernel_num
+
+        adjusted_len = ((self.len // kernel_num) + 1) * kernel_num
+        interp = interp1d(numpy.arange(0, self.len, 1), data, fill_value="extrapolate")
+        extrapolate = interp(numpy.arange(self.len, adjusted_len, 1))
+
+        data = numpy.concatenate((data, extrapolate))
+
+        matrix = data.reshape(-1, kernel_num)
+
+        m = numpy.mean(matrix, axis=1)
+
+        h = silverman_bandwidth(m)
+
+        self.kernels = [
+            GaussianKernel(mi, h) for i, mi in enumerate(m)
+        ]
+        self.domain_min = self.kernels[0].domain().min
+        self.domain_max = self.kernels[-1].domain().max
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.pdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.cdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def ppf_guess(self, x):
+        """牛顿法猜测值"""
+        x = numpy.asarray(x)
+        m = numpy.stack([k.ppf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.atleast_1d(numpy.asarray(x))
+        guess = self.ppf_guess(x)
+        results = numpy.empty_like(x, dtype=float)
+
+        for i, xi in enumerate(x):
+            def _cdf(q):
+                return self.cdf(q) - xi
+
+            results[i], _ = newton_method(_cdf, guess[i])
+
+        return numpy.clip(results if results.shape[0] > 1 else results[0], self.domain_min, self.domain_max)
+
+
+class LogKernelMixDistribution(KernelMixDistribution):
+    def __init__(self, data, kernel_num: int = None):
+        data = numpy.asarray(data)
+        self.diff = 1 - numpy.min(data)
+        super().__init__(numpy.log(data + self.diff), kernel_num)
+
+    def ppf(self, x, *args, **kwargs):
+        """存在问题2025-3-28 12:01:59"""
+        return numpy.e ** super().ppf(x) - self.diff
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x) + self.diff
+        return super().pdf(numpy.log(x)) / x
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x) + self.diff
+        return super().cdf(numpy.log(x))
+
+
+if __name__ == "__main__":
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.lifetime import WeibullDistribution
+    from matplotlib import pyplot
+
+    data = WeibullDistribution(2, 5).rvf(1000)
+    print(KernelMixDistribution(data))
+    # print(LogKernelMixDist(data))
+
+    curve_index = 1
+
+    pyplot.scatter(WeibullDistribution(2, 5).curves(100)[curve_index][:, 0],
+                   WeibullDistribution(2, 5).curves(100)[curve_index][:, 1])
+    pyplot.scatter(KernelMixDistribution(data).curves(100)[curve_index][:, 0],
+                   KernelMixDistribution(data).curves(100)[curve_index][:, 1])
+    # pyplot.scatter(LogKernelMixDist(data).curves(1000)[curve_index][:, 0],
+    #                LogKernelMixDist(data).curves(1000)[curve_index][:, 1])
+    pyplot.show()
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\nonparametric\continuous\kernel2.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self, Type
+from collections import namedtuple
+
+# 项目模块
+from easy_utils.number_utils.calculus_utils import newton_method
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.histogram import HistogramDistribution, \
+    freedman_diaconis
+
+# 外部模块
+from scipy.stats import t, iqr
+from scipy.interpolate import interp1d
+import numpy
+
+
+# 代码块
+
+def find_closest_divisor(n: int, k: int):
+    """最临近整除因子"""
+    divisors = set()
+    for i in range(1, int(n ** 0.5) + 1):
+        if n % i == 0:
+            divisors.add(i)
+            divisors.add(n // i)
+    return min(divisors, key=lambda x: abs(x - k))
+
+
+def silverman_bandwidth(data) -> float:
+    """
+    Silverman 规则
+    """
+    data = numpy.asarray(data)
+    n = data.size
+    std_dev = numpy.std(data, ddof=1)
+    ir = iqr(data)
+
+    h = 0.9 * numpy.min([std_dev, ir / 1.34]) * n ** (-0.2)
+    if h == 0:
+        raise Exception(f"h=0, data:{data.tolist()}")
+
+    return h
+
+
+class KernelMixDistribution(AbstractDistribution):
+    """混合核分布"""
+
+    def __init__(self, data, kernel_num: int = None):
+        super().__init__()
+        data = numpy.sort(numpy.asarray(data))
+        self.len = data.size
+        kernel_len = freedman_diaconis(data) if kernel_num is None else kernel_num
+
+        if kernel_num is None or kernel_len < self.len:
+            kernel_len = find_closest_divisor(self.len, kernel_len)
+            matrix = data.reshape(-1, kernel_len)
+            m = numpy.mean(matrix, axis=1)
+        else:
+            m = data
+        h = silverman_bandwidth(m)
+        self.kernels = [
+            NormalDistribution(mi, h) for i, mi in enumerate(m)
+        ]
+        self.domain_min = self.kernels[0].domain().min
+        self.domain_max = self.kernels[-1].domain().max
+
+        x_grid = numpy.linspace(self.domain_min, self.domain_max, 1000)
+        cdf_vals = self.cdf(x_grid)
+        # for i in range(1, len(cdf_vals)):
+        #     if cdf_vals[i] <= cdf_vals[i - 1]:
+        #         cdf_vals[i] = cdf_vals[i - 1] + eps
+        self.ppf_inter = interp1d(cdf_vals, x_grid, bounds_error=False, fill_value=(x_grid[0], x_grid[-1]))
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def kernel_data(self, sort_index=0):
+        d = []
+        for k in self.kernels:
+            d.append([k.mu, k.sigma])
+        d = numpy.asarray(d)
+        return d[numpy.argsort(d[:, sort_index])]
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.pdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.cdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.atleast_1d(x)
+        result = self.ppf_inter(x)
+        return numpy.clip(result, self.domain_min, self.domain_max)
+
+
+if __name__ == "__main__":
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.lifetime import WeibullDistribution
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import LogNormalDistribution
+    from matplotlib import pyplot
+
+    data = WeibullDistribution(2, 5).rvf(5000)
+    print(KernelMixDistribution(data))
+    # print(LogKernelMixDist(data))
+
+    curve_index = 1
+
+    pyplot.scatter(WeibullDistribution(2, 5).curves(100)[curve_index][:, 0],
+                   WeibullDistribution(2, 5).curves(100)[curve_index][:, 1])
+    pyplot.scatter(KernelMixDistribution(data).curves(100)[curve_index][:, 0],
+                   KernelMixDistribution(data).curves(100)[curve_index][:, 1])
+    # pyplot.scatter(LogKernelMixDist(data).curves(1000)[curve_index][:, 0],
+    #                LogKernelMixDist(data).curves(1000)[curve_index][:, 1])
+    pyplot.show()
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\nonparametric\continuous\mfk\nd.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.kernel2 import KernelMixDistribution
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+
+# 外部模块
+import numpy
+from scipy.optimize import differential_evolution, minimize
+from scipy.stats import skew, kurtosis
+from scipy.interpolate import interp1d
+
+
+# 代码块
+
+def data_moment(data):
+    """数据的矩"""
+    data = numpy.asarray(data)
+    return numpy.asarray([numpy.mean(data), numpy.var(data), skew(data), kurtosis(data)])
+
+
+def moment_loss(data, mu_target, var_target, skew_target, kurt_target, method="basic"):
+    """矩损失函数"""
+    moment = data_moment(data)
+    target = numpy.asarray([mu_target, var_target, skew_target, kurt_target])
+    if method == "basic":
+        loss = numpy.sum((moment - target) ** 2)
+        return loss
+    elif method == "minmax":
+        mm = numpy.concatenate((moment, target))
+        mm = ((mm - numpy.min(mm)) / (numpy.max(mm) + 1e-8 - numpy.min(mm))).reshape(2, 4)
+        return numpy.sum(
+            (mm[0] - mm[1]) ** 2
+        )
+    elif method == "softmax":
+        mm = numpy.concatenate((moment, target))
+        mm = (numpy.exp(mm) / numpy.sum(numpy.exp(mm))).reshape(2, 4)
+        return numpy.sum(
+            (mm[0] - mm[1]) ** 2
+        )
+    else:
+        raise Exception(f"method {method} was not found")
+
+
+class KernelDistribution(AbstractDistribution):
+    """核分布"""
+
+    def __init__(self, *args):
+        super().__init__()
+        self.kernels = [
+            NormalDistribution(i[0], i[1]) for i in args
+        ]
+        self.domain_min = self.kernels[0].domain().min
+        self.domain_max = self.kernels[-1].domain().max
+        x_grid = numpy.linspace(self.domain_min, self.domain_max, 1000)
+        cdf_vals = self.cdf(x_grid)
+        self.ppf_inter = interp1d(cdf_vals, x_grid, bounds_error=False, fill_value=(x_grid[0], x_grid[-1]))
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.pdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.cdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.atleast_1d(x)
+        result = self.ppf_inter(x)
+        return numpy.clip(result, self.domain_min, self.domain_max)
+
+
+def auto_bounds(mu_target, var_target, kurt_target):
+    """自动化搜索边界"""
+    norm = NormalDistribution(mu_target, var_target ** 0.5)
+    mu_domain_min, mu_domain_max = norm.ppf([eps, 1 - eps])
+    var_domain_min = var_target / 100
+    var_domain_max = var_target * (1 + numpy.clip((kurt_target - 3), 0, 5))
+    return mu_domain_min, mu_domain_max, var_domain_min, var_domain_max
+
+
+def moment_fitted_kde(mu_target, var_target, skew_target, kurt_target, kernel_num=5, method="basic"):
+    """矩拟合KDE分布"""
+
+    def f(x):
+        args = numpy.asarray(x).reshape(kernel_num, 2)
+        kd = KernelDistribution(*args)
+        data = kd.ppf(numpy.linspace(0.01, 0.99, 100))
+        return moment_loss(data, mu_target, var_target, skew_target, kurt_target, method)
+
+    mu_domain_min, mu_domain_max, var_domain_min, var_domain_max = auto_bounds(mu_target, var_target, kurt_target)
+
+    result = minimize(
+        f,
+        numpy.asarray([[mu_target, var_target ** 0.5]] * kernel_num).reshape(kernel_num * 2),
+        bounds=[(mu_domain_min, mu_domain_max), (var_domain_min, var_domain_max)] * kernel_num,
+        # maxiter=20,
+        # popsize=5, polish=False
+    )
+    return KernelDistribution(*numpy.asarray(result.x).reshape(kernel_num, 2))
+
+
+if __name__ == "__main__":
+    dist = moment_fitted_kde(45, 1 ** 2, -2, 1, kernel_num=4, method="minmax")
+    print(
+        data_moment(dist.rvf(1000))
+    )
+    print(dist.rvf(100).tolist())
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\nonparametric\continuous\mfk\skewnd.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import SkewNormalDistribution
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.mfk.nd import data_moment, moment_loss
+
+# 外部模块
+import numpy
+from scipy.optimize import differential_evolution, minimize
+from scipy.stats import skew, kurtosis
+from scipy.interpolate import interp1d
+
+
+# 代码块
+
+class SkewNormalKernel(SkewNormalDistribution):
+
+    def mean(self):
+        return (numpy.sqrt(2 / numpy.pi) * self.alpha * self.sigma) / numpy.sqrt(self.alpha ** 2 + 1) + self.mu
+
+    def variance(self):
+        return (1 - (2 * self.alpha ** 2) / (numpy.pi * (self.alpha ** 2 + 1))) * self.sigma ** 2
+
+    def skewness(self):
+        numerator = numpy.sqrt(2) * (4 - numpy.pi) * self.alpha ** 3
+        denominator = ((numpy.pi - 2) * self.alpha ** 2 + numpy.pi) ** 1.5
+        return numerator / denominator
+
+    def kurtosis(self):
+        numerator = 8 * (numpy.pi - 3) * self.alpha ** 4
+        denominator = ((numpy.pi - 2) * self.alpha ** 2 + numpy.pi) ** 2
+        return numerator / denominator + 3
+
+    def moment(self):
+        return numpy.asarray([self.mean(), self.variance(), self.skewness(), self.kurtosis()])
+
+
+class SkewKernelDistribution(AbstractDistribution):
+    """核分布"""
+
+    def __init__(self, x):
+        super().__init__()
+        x = numpy.asarray(x).reshape(-1, 3)
+        self.kernel_len = len(x)
+        self.kernels = [
+            SkewNormalKernel(i[0], i[1], i[2]) for i in x
+        ]
+
+        domains = numpy.asarray([i.domain() for i in self.kernels])
+        self.domain_min = numpy.min(domains[:, 0])
+        self.domain_max = numpy.max(domains[:, 1])
+
+        x_grid = numpy.linspace(self.domain_min, self.domain_max, 1000)
+        cdf_vals = self.cdf(x_grid)
+        self.ppf_inter = interp1d(cdf_vals, x_grid, bounds_error=False, fill_value=(x_grid[0], x_grid[-1]))
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.pdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.cdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.atleast_1d(x)
+        result = self.ppf_inter(x)
+        return numpy.clip(result, self.domain_min, self.domain_max)
+
+    def mean(self):
+        w = 1 / self.kernel_len
+        return numpy.sum([i.mean() * w for i in self.kernels])
+        # return numpy.mean(self.ppf(numpy.linspace(eps, 1-eps, 1000)))
+
+    def variance(self):
+        w = 1 / self.kernel_len
+        mu_hat = self.mean()
+        return numpy.sum([(i.variance() + (i.mean() - mu_hat) ** 2) * w for i in self.kernels])
+        # return numpy.std(self.ppf(numpy.linspace(eps, 1-eps, 1000)), ddof=1) ** 2
+
+    def skewness(self):
+        w = 1 / self.kernel_len
+        mu_hat = self.mean()
+        var_hat = self.variance()
+        std_hat = var_hat ** 0.5
+        mu_3 = numpy.sum([
+            (
+                    i.skewness() * i.variance() ** 1.5 + 3 * (i.mean() - mu_hat) * i.variance() + (
+                    i.mean() - mu_hat) ** 3
+            ) * w for i in self.kernels])
+        return mu_3 / std_hat ** 3
+        # return skew(self.ppf(numpy.linspace(eps, 1-eps, 1000)))
+
+    def moment(self):
+        w = 1 / self.kernel_len
+        mu_hat = self.mean()
+        var_hat = self.variance()
+        # std_hat = var_hat ** 0.5
+        ske_hat = self.skewness()
+        mu_4 = numpy.sum([
+            (i.kurtosis() * i.variance() ** 2 + 6 * (i.mean() - mu_hat) ** 2 * i.variance() + (
+                    i.mean() - mu_hat) ** 4) * w
+            for i in self.kernels])
+        return numpy.asarray([mu_hat, var_hat, ske_hat, mu_4 / var_hat ** 2])
+        # return kurtosis(self.ppf(numpy.linspace(eps, 1-eps, 1000)))
+
+    # def moment(self):
+    #     return numpy.asarray([
+    #         self.mean(),
+    #         self.variance(),
+    #         self.skewness(),
+    #         self.kurtosis()
+    #     ])
+
+
+class SkewKDFitter:
+    """使用偏度KernelDistribution拟合"""
+
+    def __init__(self, mu_target, var_target, skew_target, kurt_target):
+        self.target = numpy.asarray([
+            mu_target, var_target, skew_target, kurt_target
+        ])
+
+    def loss(self, x):
+        d = SkewKernelDistribution(x)
+        m = d.moment()
+        return numpy.sum((m - self.target) ** 2)
+
+    def fit(self, kernel_num=6):
+        result = minimize(
+            self.loss,
+            # numpy.asarray([[0, 1, 0]] * kernel_num).reshape(kernel_num * 3),
+            # numpy.arange(kernel_num * 3),
+            numpy.random.uniform(1e-8, 1, kernel_num * 3),
+            bounds=[(-numpy.inf, numpy.inf), (self.target[1] / kernel_num, numpy.inf),
+                    (-numpy.inf, numpy.inf)] * kernel_num,
+            # method='BFGS'
+        )
+        return SkewKernelDistribution(result.x), result.x
+
+
+if __name__ == "__main__":
+    # snd = SkewNormalKernel(45, 5, 500)
+    # print(snd.mean())
+
+    finder = SkewKDFitter(45, 2 ** 2, -3, 1)
+    print(finder.target)
+    # d = SkewKernelDistribution([0, 1, 0])
+    d, p = finder.fit(4)
+    print(d.moment())
+    print(d)
+    print(d.kernels[0].mean())
+    #
+    # d = SkewKernelDistribution([45, 1, 0] * 4 )
+    # # print(d.domain_min)
+    # # print(d.domain_max)
+    # print(d.moment())
+    # print(d.rvf(200).tolist())
+
+    print(numpy.sum((d.moment() - finder.target) ** 2))
+    print(d.rvf(200).tolist())
+    print(p)
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\nonparametric\continuous\mfk\skewnd2.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import SkewNormalDistribution
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.mfk.nd import data_moment, moment_loss
+
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.mfk.skewnd import SkewKDFitter, \
+    SkewNormalKernel
+
+# 外部模块
+import numpy
+from scipy.optimize import differential_evolution, minimize
+from scipy.stats import skew, kurtosis
+from scipy.interpolate import interp1d
+
+
+# 代码块
+
+# class SkewNormalKernel(SkewNormalDistribution):
+#
+#     def mean(self):
+#         return (numpy.sqrt(2 / numpy.pi) * self.alpha * self.sigma) / numpy.sqrt(self.alpha ** 2 + 1) + self.mu
+#
+#     def variance(self):
+#         return (1 - (2 * self.alpha ** 2) / (numpy.pi * (self.alpha ** 2 + 1))) * self.sigma ** 2
+#
+#     def skewness(self):
+#         numerator = numpy.sqrt(2) * (4 - numpy.pi) * self.alpha ** 3
+#         denominator = ((numpy.pi - 2) * self.alpha ** 2 + numpy.pi) ** 1.5
+#         return numerator / denominator
+#
+#     def kurtosis(self):
+#         numerator = 8 * (numpy.pi - 3) * self.alpha ** 4
+#         denominator = ((numpy.pi - 2) * self.alpha ** 2 + numpy.pi) ** 2
+#         return numerator / denominator + 3
+#
+#     def moment(self):
+#         return numpy.asarray([self.mean(), self.variance(), self.skewness(), self.kurtosis()])
+
+
+class SkewWeightKernelDistribution(AbstractDistribution):
+    """核分布"""
+
+    def __init__(self, x):
+        super().__init__()
+        x = numpy.asarray(x).reshape(-1, 4)
+        self.kernel_len = len(x)
+        self.kernels = [
+            SkewNormalKernel(i[0], i[1], i[2]) for i in x
+        ]
+        self.w = [i[3] for i in x]
+        self.ws = numpy.sum(self.w)
+
+        domains = numpy.asarray([i.domain() for i in self.kernels])
+        self.domain_min = numpy.min(domains[:, 0])
+        self.domain_max = numpy.max(domains[:, 1])
+
+        x_grid = numpy.linspace(self.domain_min, self.domain_max, 1000)
+        cdf_vals = self.cdf(x_grid)
+        self.ppf_inter = interp1d(cdf_vals, x_grid, bounds_error=False, fill_value=(x_grid[0], x_grid[-1]))
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.pdf(x) * self.w[i] for i, k in enumerate(self.kernels)], axis=0)
+        r = numpy.sum(m, axis=0) / self.ws
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.cdf(x) * self.w[i] for i, k in enumerate(self.kernels)], axis=0)
+        r = numpy.sum(m, axis=0) / self.ws
+        return r
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.atleast_1d(x)
+        result = self.ppf_inter(x)
+        return numpy.clip(result, self.domain_min, self.domain_max)
+
+    def mean(self):
+        # w = 1 / self.kernel_len
+        return numpy.sum([k.mean() * self.w[i] for i, k in enumerate(self.kernels)]) / self.ws
+
+    def variance(self):
+        # w = 1 / self.kernel_len
+        mu_hat = self.mean()
+        return numpy.sum(
+            [(k.variance() + (k.mean() - mu_hat) ** 2) * self.w[i] for i, k in enumerate(self.kernels)]) / self.ws
+
+    def skewness(self):
+        # w = 1 / self.kernel_len
+        mu_hat = self.mean()
+        var_hat = self.variance()
+        std_hat = var_hat ** 0.5
+        mu_3 = numpy.sum([
+            (
+                    k.skewness() * k.variance() ** 1.5 + 3 * (k.mean() - mu_hat) * k.variance() + (
+                    k.mean() - mu_hat) ** 3
+            ) * self.w[i] for i, k in enumerate(self.kernels)]) / self.ws
+        return mu_3 / std_hat ** 3
+
+    def moment(self) -> numpy.ndarray:
+        # w = 1 / self.kernel_len
+        mu_hat = self.mean()
+        var_hat = self.variance()
+        # std_hat = var_hat ** 0.5
+        ske_hat = self.skewness()
+        mu_4 = numpy.sum([
+            (k.kurtosis() * k.variance() ** 2 + 6 * (k.mean() - mu_hat) ** 2 * k.variance() + (
+                    k.mean() - mu_hat) ** 4) * self.w[i]
+            for i, k in enumerate(self.kernels)]) / self.ws
+        return numpy.asarray([mu_hat, var_hat, ske_hat, mu_4 / var_hat ** 2])
+
+
+class SkewWeightKDFitter:
+    """使用偏度KernelDistribution拟合"""
+
+    def __init__(self, x0, mu_target, var_target, skew_target, kurt_target):
+        self.x0 = numpy.asarray(x0)
+        self.target = numpy.asarray([
+            mu_target, var_target, skew_target, kurt_target
+        ])
+
+    def adj(self, xw):
+        x = self.x0.reshape(-1, 3)
+        xw = numpy.asarray(xw).reshape(len(x), -1)
+        y = numpy.column_stack((x, xw))
+        return y.reshape(len(x) * 4)
+
+    def adj_loss(self, xw):
+        y = self.adj(xw)
+        # return y.reshape(len(x) * 4)
+        d = SkewWeightKernelDistribution(y)
+        m = d.moment()
+        return numpy.sum((m - self.target) ** 2)
+
+    def fit(self, kernel_num):
+        result = differential_evolution(
+            self.adj_loss,
+            bounds=[(0.1, 1)] * kernel_num
+        )
+        y = self.adj(result.x)
+        return SkewWeightKernelDistribution(y), numpy.asarray(y).reshape(-1, 4)
+
+
+class SkewWeightKDFitter2:
+
+    def __init__(self, x0, mu_target, var_target, skew_target, kurt_target, kernel_num):
+        self.x0 = numpy.asarray(x0)
+        self.target = numpy.asarray([
+            mu_target, var_target, skew_target, kurt_target
+        ])
+        self.kernel_num = kernel_num
+
+    def zoom(self, xz):
+        return self.x0 * xz
+
+    def zoom_and_adj(self, xz, xw):
+        x = self.zoom(xz).reshape(-1, 3)
+        xw = numpy.asarray(xw).reshape(len(x), -1)
+        y = numpy.column_stack((x, xw))
+        return y.reshape(len(x) * 4)
+
+    def zoom_and_adj_loss(self, xzw):
+        xz = xzw[:self.kernel_num * 3]
+        xw = xzw[self.kernel_num * 3:]
+        y = self.zoom_and_adj(xz, xw)
+        # return y.reshape(len(x) * 4)
+        d = SkewWeightKernelDistribution(y)
+        m = d.moment()
+        return numpy.sum((m - self.target) ** 2)
+
+    def dof_zoom_and_adj_loss(self, xzw, dof_index):
+        xz = xzw[:self.kernel_num * 3]
+        xw = xzw[self.kernel_num * 3:]
+        y = self.zoom_and_adj(xz, xw)
+        d = SkewWeightKernelDistribution(y)
+        m = d.moment()[dof_index]
+        target = self.target[dof_index]
+        return numpy.sum((m - target) ** 2)
+
+    def fit(self, de_maxiter=50):
+        result = differential_evolution(
+            self.zoom_and_adj_loss,
+            bounds=[(0.1, 1.9)] * (self.kernel_num * 3) + [(0.1, 1)] * self.kernel_num,
+            maxiter=de_maxiter
+        )
+        y = self.zoom_and_adj(result.x[:self.kernel_num * 3], result.x[self.kernel_num * 3:])
+        return SkewWeightKernelDistribution(y), numpy.asarray(y).reshape(-1, 4)
+
+    def dof_fit(self, dof_index):
+        result = minimize(
+            self.dof_zoom_and_adj_loss,
+            numpy.random.uniform(0.1, 1, self.kernel_num * 4),
+            bounds=[(0.1, numpy.inf)] * (self.kernel_num * 3) + [(0.1, 1)] * self.kernel_num,
+            # maxiter=de_maxiter,
+            args=(dof_index,)
+        )
+        y = self.zoom_and_adj(result.x[:self.kernel_num * 3], result.x[self.kernel_num * 3:])
+        return SkewWeightKernelDistribution(y), numpy.asarray(y)
+
+
+def snd_fitter(mu_target, var_target, skew_target, kurt_target, kernel_num, de_maxiter=20):
+    """snd拟合"""
+    finder = SkewKDFitter(mu_target, var_target, skew_target, kurt_target)
+    d, p = finder.fit(kernel_num)
+    finder2 = SkewWeightKDFitter2(p, mu_target, var_target, skew_target, kurt_target, kernel_num)
+    d2, p2 = finder2.fit(de_maxiter)
+    return d, d2, p2
+
+
+def dof_snd_fitter(mu_target, var_target, skew_target, kurt_target, kernel_num, de_maxiter=20):
+    """带有自由度的snd拟合"""
+    default_moment = numpy.asarray([0, 1, 0, 3])
+    input_target = numpy.asarray([mu_target, var_target, skew_target, kurt_target])
+    target = numpy.where(input_target != None, input_target, default_moment)
+    dof_index = numpy.where(input_target != None)
+
+    finder = SkewKDFitter(*target)
+    d, p = finder.fit(kernel_num)
+
+    finder2 = SkewWeightKDFitter2(p, mu_target, var_target, skew_target, kurt_target, kernel_num)
+    d2, p2 = finder2.dof_fit(dof_index)
+    return d, d2, p2
+
+
+if __name__ == "__main__":
+    # d, d2, p2 = snd_fitter(40, 2 ** 2, -3, 1, 2)
+    # print(d.moment())
+    # print(d2.moment())
+    # print(p2)
+    # print(d2.rvf(200).tolist())
+
+    # finder = SkewKDFitter(40, 2 ** 2, -3, 5)
+    # # print(finder.adj([0, 1, 2, 3, 4, 5], [-1, -2]))
+    # d, p = finder.fit(2)
+    # print(d.moment())
+    # finder2 = SkewWeightKDFitter2(p, 40, 2 ** 2, -3, 5, 2)
+    # d2, p2 = finder2.fit(20)
+    # print(finder2.target)
+    # print(d2.moment())
+    # print(p2)
+
+    d, d2, p2 = dof_snd_fitter(45, 0.1, -0.5, None, 4)
+    print(d.moment())
+    print(d2.moment())
+    print(d2.rvf(100).tolist())
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\nonparametric\discrete\basic.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+def standardization(x) -> numpy.ndarray:
+    """直方图数据标准化"""
+    x = numpy.asarray(x).astype(float)
+    p = 1 / numpy.sum(x[:, 1])
+    x[:, 1] = x[:, 1] * p
+    return x[numpy.argsort(x[:, 0])]
+
+
+class DiscreteDistribution(AbstractDistribution):
+    """基本离散分布"""
+
+    def __init__(self, sample_space):
+        super().__init__()
+        self.sample_space = standardization(sample_space)
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.sample_space})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.sample_space})
+
+    def pdf(self, x, *args, **kwargs):
+        vx = numpy.atleast_1d(numpy.asarray(x).astype(float))
+        lookup = dict(zip(self.sample_space[:, 0], self.sample_space[:, 1]))
+        r = numpy.array([lookup.get(xi, 0.0) for xi in vx])
+        return r[0] if numpy.isscalar(x) else r
+
+    def cdf(self, x, *args, **kwargs):
+        vx = numpy.atleast_1d(numpy.asarray(x).astype(float))
+        grid = self.sample_space[:, 0]
+        prob = self.sample_space[:, 1]
+        cdf_vals = numpy.array([prob[grid <= xi].sum() for xi in vx])
+        return cdf_vals[0] if numpy.isscalar(x) else cdf_vals
+
+    def ppf(self, q, *args, **kwargs):
+        vq = numpy.atleast_1d(numpy.asarray(q).astype(float))
+        if numpy.any((vq < 0) | (vq > 1)):
+            return numpy.nan
+
+        grid = self.sample_space[:, 0]
+        cdf_vals = numpy.cumsum(self.sample_space[:, 1])
+        indices = numpy.searchsorted(cdf_vals, vq, side='left')
+        result = grid[numpy.clip(indices, 0, len(grid) - 1)]
+        return result[0] if numpy.isscalar(q) else result
+
+
+if __name__ == "__main__":
+    dd = DiscreteDistribution(numpy.arange(10).reshape(-1, 2))
+    print(dd)
+
+    print(dd.cdf(numpy.arange(-10, 20, 1)))
+    print(dd.pdf(2.0))
+    print(dd.ppf(numpy.arange(0.1, 0.9, 0.1)))
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\parameter\abstract.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+from abc import ABC, abstractmethod
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+class DistributionParams:
+    """概率分辨参数"""
+
+    def __init__(self, name: str, min: float, max: float):
+        self.name = name
+        self.min = min
+        self.max = max
+
+
+class ParameterDistribution(AbstractDistribution):
+    """参数分布"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.args = numpy.asarray(args)
+        self.kwargs = copy.deepcopy(kwargs)
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.kwargs})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.kwargs})
+
+    @abstractmethod
+    def ppf(self, *args, **kwargs):
+        """分位数函数"""
+        pass
+
+    @abstractmethod
+    def pdf(self, *args, **kwargs):
+        """概率密度函数"""
+        pass
+
+    @abstractmethod
+    def cdf(self, *args, **kwargs):
+        """累计概率函数"""
+        pass
+
+    @abstractmethod
+    def get_param_constraints(self, args) -> list[DistributionParams]:
+        """获取参数范围"""
+        pass
+
+    def parameter_verification(self, args) -> numpy.ndarray[bool]:
+        """参数验证"""
+        param_list = self.get_param_constraints(args)
+        verification_list = []
+        for i, arg in enumerate(args):
+            if param_list[i].min <= arg <= param_list[i].max:
+                verification_list.append(True)
+            else:
+                verification_list.append(False)
+        return numpy.asarray(verification_list)
+
+
+if __name__ == "__main__":
+    pass
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\parameter\continuous\basic.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import eps
+from data_utils.stochastic_utils.vdistributions.parameter.abstract import ParameterDistribution, DistributionParams
+
+# 外部模块
+import numpy
+from scipy.special import betaincinv, beta, iv, gamma, erfinv, erfcinv, betainc, erfc, erf, owens_t
+from scipy.optimize import brentq
+
+
+# 代码块
+
+class NormalDistribution(ParameterDistribution):
+    """正态分布"""
+
+    def __init__(self, mu=0, sigma=1):
+        super().__init__(mu, sigma, **{"mu": mu, "sigma": sigma})
+        self.mu = mu
+        self.sigma = sigma
+
+    def get_param_constraints(self, args) -> list[DistributionParams]:
+        return [
+            DistributionParams("mu", -numpy.inf, numpy.inf),
+            DistributionParams("sigma", 0 + eps, numpy.inf)
+        ]
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            (x > 0) & (x < 1),
+            self.mu - numpy.sqrt(2) * self.sigma * erfcinv(2 * x),
+            numpy.nan
+        )
+        return r
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.e ** (-((-self.mu + x) ** 2 / (2 * self.sigma ** 2))) / (numpy.sqrt(2 * numpy.pi) * self.sigma)
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        return 0.5 * erfc((self.mu - x) / (numpy.sqrt(2) * self.sigma))
+
+
+class LogNormalDistribution(NormalDistribution):
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            (x > 0) & (x < 1),
+            numpy.exp(self.mu + self.sigma * numpy.sqrt(2) * erfinv(2 * x - 1)),
+            numpy.nan
+        )
+        return r
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        c = 1 / (x * self.sigma * numpy.sqrt(2 * numpy.pi))
+        e = -((numpy.log(x) - self.mu) ** 2) / (2 * self.sigma ** 2)
+        return c * numpy.exp(e)
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            x > 0,
+            0.5 * (1 + erf((numpy.log(x) - self.mu) / (self.sigma * numpy.sqrt(2)))),
+            numpy.nan
+        )
+        return r
+
+
+class ExponentialDistribution(ParameterDistribution):
+    """指数分布"""
+
+    def __init__(self, lam):
+        super().__init__(lam, **{"lam": lam})
+        self.lam = lam
+
+    def get_param_constraints(self, args) -> list[DistributionParams]:
+        return [DistributionParams("lam", -numpy.inf, numpy.inf)]
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            (x > 0) & (x < 1),
+            -numpy.log(1 - x) / self.lam,
+            numpy.nan
+        )
+        return r
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            x >= 0,
+            numpy.e ** (-self.lam * x) * self.lam,
+            0
+        )
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            x >= 0,
+            1 - numpy.e ** (-self.lam * x),
+            0
+        )
+        return r
+
+
+class SkewNormalDistribution(ParameterDistribution):
+    """偏态正态分布"""
+
+    def __init__(self, mu, sigma, alpha):
+        super().__init__(mu, sigma, alpha, **{"mu": mu, "sigma": sigma, "alpha": alpha})
+        self.mu = mu
+        self.sigma = sigma
+        self.alpha = alpha
+
+    def get_param_constraints(self, args) -> list[DistributionParams]:
+        return [
+            DistributionParams("mu", -numpy.inf, numpy.inf),
+            DistributionParams("sigma", 0 + eps, numpy.inf),
+            DistributionParams("alpha", -numpy.inf, numpy.inf)
+        ]
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        z = (x - self.mu) / self.sigma
+        return (numpy.exp(-0.5 * z ** 2) * erfc(-self.alpha * z / numpy.sqrt(2))) / (
+                numpy.sqrt(2 * numpy.pi) * self.sigma)
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        z = (x - self.mu) / self.sigma
+        term1 = 0.5 * erfc(-z / numpy.sqrt(2))
+        term2 = 2 * owens_t(z, self.alpha)
+        return term1 - term2
+
+    def single_ppf(self, qi):
+        """单点ppf"""
+        if qi >= 1 or qi <= 0:
+            return numpy.nan
+        else:
+            return brentq(lambda y: self.cdf(y) - qi,
+                          self.mu - 10 * self.sigma,
+                          self.mu + 10 * self.sigma)
+
+    def ppf(self, x, *args, **kwargs):
+        is_scalar = numpy.isscalar(x)
+        x = numpy.atleast_1d(x)
+        result = numpy.array([self.single_ppf(qi) for qi in x])
+        return result[0] if is_scalar else result
+
+
+if __name__ == "__main__":
+    n = SkewNormalDistribution(0, 1, 1)
+    # print(n.cdf([1, 2, 3, 4, 5]))
+    # print(n.rvf(100))
+    print(n.domain())
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\parameter\continuous\heavytail.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from easy_utils.number_utils.calculus_utils import newton_method
+from data_utils.stochastic_utils.vdistributions.abstract import eps
+from data_utils.stochastic_utils.vdistributions.parameter.abstract import ParameterDistribution, DistributionParams
+
+# 外部模块
+import numpy
+from scipy.optimize import brentq
+from scipy.special import betaincinv, beta, iv, gamma, erfinv, erfcinv, betainc
+
+
+# 代码块
+
+class StudentTDistribution(ParameterDistribution):
+    """学生t分布"""
+
+    def __init__(self, u=0, s=1, v=1):
+        super().__init__(u, s, v, **{"u": 0, "s": s, "v": v})
+        self.u = u
+        self.s = s
+        self.v = v
+
+    def get_param_constraints(self, args) -> list[DistributionParams]:
+        return [
+            DistributionParams("u", -numpy.inf, numpy.inf),
+            DistributionParams("s", 0 + eps, numpy.inf),
+            DistributionParams("v", 0 + eps, numpy.inf),
+        ]
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        numerator = (self.v / (self.v + (-self.u + x) ** 2 / self.s ** 2)) ** ((1 + self.v) / 2)
+        denominator = self.s * numpy.sqrt(self.v) * beta(self.v / 2, 0.5)
+        r = numerator / denominator
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+
+        s2v = self.s ** 2 * self.v
+        delta = x - self.u
+        delta2 = delta ** 2
+
+        below = 0.5 * betainc(self.v / 2, 1 / 2, s2v / (s2v + delta2))
+        above = 0.5 * (1 + betainc(1 / 2, self.v / 2, delta2 / (s2v + delta2)))
+
+        result = numpy.where(x <= self.u, below, above)
+        return result
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.atleast_1d(x)
+        results = numpy.empty_like(x, dtype=float)
+
+        for i, xi in enumerate(x):
+            def _cdf(q):
+                return self.cdf(q) - xi
+
+            results[i], _ = newton_method(_cdf, self.u)
+
+        return results if results.shape[0] > 1 else results[0]
+
+
+if __name__ == "__main__":
+    s = StudentTDistribution()
+    print(s.ppf(numpy.arange(0.1, 1, 0.1)))
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\parameter\continuous\lifetime.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import eps
+from data_utils.stochastic_utils.vdistributions.parameter.abstract import ParameterDistribution, DistributionParams
+
+# 外部模块
+import numpy
+from scipy.special import betaincinv, beta, iv, gamma, erfinv, erfcinv, betainc, erfc, erf
+
+
+# 代码块
+
+class WeibullDistribution(ParameterDistribution):
+    """威布尔分布"""
+
+    def __init__(self, alpha, beta, miu=0):
+        super().__init__(alpha, beta, miu, **{"alpha": alpha, "beta": beta, "miu": miu})
+        self.alpha = alpha
+        self.beta = beta
+        self.miu = miu
+
+    def get_param_constraints(self, args) -> list[DistributionParams]:
+        return [
+            DistributionParams("alpha", 0 + eps, numpy.inf),
+            DistributionParams("beta", 0 + eps, numpy.inf),
+            DistributionParams("miu", -numpy.inf, numpy.inf),
+        ]
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            (x > 0) & (x < 1),
+            self.miu + self.beta * (-numpy.log(1 - x)) ** (1 / self.alpha),
+            numpy.nan
+        )
+        return r
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            x > self.miu,
+            (self.alpha * numpy.e ** -((-self.miu + x) / self.beta) ** self.alpha * ((-self.miu + x) / self.beta) ** (
+                    -1 + self.alpha)) / self.beta,
+            0
+        )
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        r = numpy.where(
+            x > self.miu,
+            1 - numpy.e ** -((-self.miu + x) / self.beta) ** self.alpha,
+            0
+        )
+        return r
+
+
+class GumbelDistribution(ParameterDistribution):
+    """耿贝尔分布"""
+
+    def __init__(self, alpha=0, beta=1):
+        super().__init__(alpha, beta, **{"alpha": alpha, "beta": beta})
+        self.alpha = alpha
+        self.beta = beta
+
+    def get_param_constraints(self, args) -> list[DistributionParams]:
+        return [
+            DistributionParams("alpha", -numpy.inf, numpy.inf),
+            DistributionParams("beta", 0 + eps, numpy.inf),
+        ]
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        z = (x - self.alpha) / self.beta
+        return numpy.exp(z - numpy.exp(z)) / self.beta
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        z = (x - self.alpha) / self.beta
+        return 1 - numpy.exp(-numpy.exp(z))
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        result = numpy.where(
+            (x > 0) & (x < 1),
+            self.alpha + self.beta * numpy.log(-numpy.log(1 - x)),
+            numpy.nan
+        )
+        return result
+
+
+if __name__ == "__main__":
+    w = WeibullDistribution(2, 5)
+    print(w.rvf(100))
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\parameter\continuous\uniform.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+import numpy
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import eps
+from data_utils.stochastic_utils.vdistributions.parameter.abstract import ParameterDistribution, DistributionParams
+
+# 外部模块
+import numpy as np
+
+
+# 代码块
+
+class UniformDistribution(ParameterDistribution):
+    """均匀分布"""
+
+    def __init__(self, min: float, max: float):
+        super().__init__(min, max, **{"min": min, "max": max})
+        self.min = min
+        self.max = max
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        result = numpy.where(
+            (x > 0) & (x < 1),
+            self.min + (self.max - self.min) * x,
+            numpy.nan
+        )
+        return result
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        result = numpy.where(
+            (x >= self.min) & (x <= self.max),
+            1.0 / (self.max - self.min),
+            0.0
+        )
+        return result
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        result = numpy.where(
+            x < self.min,
+            0.0,
+            numpy.where(
+                x > self.max,
+                1.0,
+                (x - self.min) / (self.max - self.min)
+            )
+        )
+        return result
+
+    def get_param_constraints(self, args) -> list[DistributionParams]:
+        return [
+            DistributionParams("min", -numpy.inf, numpy.inf),
+            DistributionParams("max", args[0] + eps, numpy.inf)
+        ]
+
+
+if __name__ == "__main__":
+    u = UniformDistribution(0, 1)
+    print(u.parameter_verification([-5, 0]))
+    print(u.cdf([0.1, 0.2]))
+    print(u.ppf([0.1, 0.2, 1]))
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\parameter\continuous\kernel\gaussian.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""指定参数的核分布"""
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+from data_utils.stochastic_utils.vdistributions.parameter.abstract import ParameterDistribution
+
+# 外部模块
+import numpy
+from scipy.stats import t, iqr
+from scipy.interpolate import interp1d
+import numpy
+
+
+# 代码块
+
+class GaussianKernelMixDistribution(AbstractDistribution):
+
+    def __init__(self, *args):
+        super().__init__()
+        self.args = args
+        self.kernels = [
+            NormalDistribution(i[0], i[1]) for i in args
+        ]
+
+        self.domain_min = self.kernels[0].domain().min
+        self.domain_max = self.kernels[-1].domain().max
+
+        x_grid = numpy.linspace(self.domain_min, self.domain_max, 1000)
+        cdf_vals = self.cdf(x_grid)
+        self.ppf_inter = interp1d(cdf_vals, x_grid, bounds_error=False, fill_value=(x_grid[0], x_grid[-1]))
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def kernel_data(self, sort_index=0):
+        d = []
+        for k in self.kernels:
+            d.append([k.mu, k.sigma])
+        d = numpy.asarray(d)
+        if sort_index is None:
+            return d
+        else:
+            return d[numpy.argsort(d[:, sort_index])]
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.pdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.cdf(x) for k in self.kernels], axis=0)
+        r = numpy.sum(m, axis=0) / len(self.kernels)
+        return r
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.atleast_1d(x)
+        result = self.ppf_inter(x)
+        return numpy.clip(result, self.domain_min, self.domain_max)
+
+
+class GaussianKernelWeightedMixDistribution(AbstractDistribution):
+
+    def __init__(self, *args):
+        super().__init__()
+        self.args = args
+        self.kernels = []
+        self.weights = []
+
+        for i in args:
+            mu, sigma, weight = i
+            self.kernels.append(NormalDistribution(mu, sigma))
+            self.weights.append(weight)
+
+        self.weights = numpy.asarray(self.weights, dtype=float)
+        weight_sum = numpy.sum(self.weights)
+        if weight_sum == 0:
+            raise ValueError("Sum of weights must be > 0")
+        self.weights /= weight_sum  # 归一化
+
+        self.domain_min = self.kernels[0].domain().min
+        self.domain_max = self.kernels[-1].domain().max
+
+        x_grid = numpy.linspace(self.domain_min, self.domain_max, 1000)
+        cdf_vals = self.cdf(x_grid)
+        self.ppf_inter = interp1d(cdf_vals, x_grid, bounds_error=False, fill_value=(x_grid[0], x_grid[-1]))
+
+    def __str__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def __repr__(self):
+        return str({self.__class__.__name__: self.kernels})
+
+    def kernel_data(self, sort_index=0):
+        d = []
+        for k, w in zip(self.kernels, self.weights):
+            d.append([k.mu, k.sigma, w])
+        d = numpy.asarray(d)
+        return d[numpy.argsort(d[:, sort_index])]
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.pdf(x) for k in self.kernels], axis=0)
+        weighted_sum = numpy.sum(self.weights[:, None] * m, axis=0)
+        return weighted_sum
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        m = numpy.stack([k.cdf(x) for k in self.kernels], axis=0)
+        weighted_sum = numpy.sum(self.weights[:, None] * m, axis=0)
+        return weighted_sum
+
+    def ppf(self, x, *args, **kwargs):
+        x = numpy.atleast_1d(x)
+        result = self.ppf_inter(x)
+        return numpy.clip(result, self.domain_min, self.domain_max)
+
+
+if __name__ == "__main__":
+    gkmd = GaussianKernelMixDistribution((0, 0.1))
+    print(gkmd.rvf(100))
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\tools\clip.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""对分布进行剪切"""
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.kernel2 import KernelMixDistribution
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.histogram import HistogramDistribution
+
+# 外部模块
+import numpy
+from scipy.integrate import quad
+
+# 代码块
+
+DomainNamedtuple = namedtuple("DomainNamedtuple", ["min", "max"])
+
+
+class ClippedHistogramDistribution(HistogramDistribution):
+
+    def __init__(self, dist: AbstractDistribution, x_min, x_max, his_num=1000, bin_num: int = None):
+        self.distribution = dist.clone()
+        self.min = x_min if x_min > -numpy.inf else self.distribution.domain().min
+        self.max = x_max if x_max < numpy.inf else self.distribution.domain().max
+        data = numpy.clip(self.distribution.rvf(his_num), self.min, self.max)
+        super().__init__(data, bin_num)
+
+    def __repr__(self):
+        return str({"distribution": self.distribution, "min": self.min, "max": self.max})
+
+    def __str__(self):
+        return str({"distribution": self.distribution, "min": self.min, "max": self.max})
+
+    def domain(self):
+        dist_min, dist_max = self.distribution.domain()
+        return DomainNamedtuple(
+            numpy.max([self.min, dist_min]),
+            numpy.min([self.max, dist_max])
+        )
+
+
+class ClampedDistribution(AbstractDistribution):
+    def __init__(self, dist: AbstractDistribution, x_min, x_max):
+        super().__init__()
+        self.distribution = dist.clone()
+        self.min = x_min
+        self.max = x_max
+
+    def __repr__(self):
+        return str({"distribution": self.distribution, "min": self.min, "max": self.max})
+
+    def __str__(self):
+        return str({"distribution": self.distribution, "min": self.min, "max": self.max})
+
+    def domain(self):
+        # return DomainNamedtuple(self.min, self.max)
+        dist_min, dist_max = self.distribution.domain()
+        return DomainNamedtuple(
+            numpy.max([self.min, dist_min]),
+            numpy.min([self.max, dist_max])
+        )
+
+    def cdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        F = self.distribution.cdf
+        return numpy.where(
+            x < self.min,
+            0,
+            numpy.where(x > self.max, 1, F(x))
+        )
+
+    def pdf(self, x, *args, **kwargs):
+        x = numpy.asarray(x)
+        left_mass = self.distribution.cdf(self.min)
+        right_mass = 1 - self.distribution.cdf(self.max)
+        pdf_val = self.distribution.pdf(x)
+        result = numpy.empty_like(pdf_val)
+        result[(x < self.min) | (x > self.max)] = 0
+        result[(x > self.min) & (x < self.max)] = pdf_val[(x > self.min) & (x < self.max)]
+        result[x == self.min] = left_mass
+        result[x == self.max] = right_mass
+        return result
+
+    def ppf(self, q, *args, **kwargs):
+        q = numpy.asarray(q)
+        q_min = self.distribution.cdf(self.min)
+        q_max = self.distribution.cdf(self.max)
+        q_clamped = numpy.clip(q, q_min, q_max)
+        return self.distribution.ppf(q_clamped)
+
+
+if __name__ == "__main__":
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+    from data_utils.stochastic_utils.vdistributions.tools.divergence import kl_divergence_continuous, crps, \
+        quantile_RMSE
+    from matplotlib import pyplot
+
+    chd = ClampedDistribution(NormalDistribution(0, 1), 0, 1)
+    # ppf, pdf, cdf = chd.curves()
+    # pyplot.plot(pdf[:,0], pdf[:, 1])
+    # pyplot.show()
+    # pyplot.hist(chd.rvf(1000).tolist())
+    # pyplot.show()
+    print(quantile_RMSE(chd, NormalDistribution(0, 1)))
+    print(quantile_RMSE(NormalDistribution(0, 10), NormalDistribution(0, 1)))
+    # print(crps(NormalDistribution(0, 1), 1))
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\tools\convert.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self, Type, Tuple
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+def resample_like_standard_normal(data) -> numpy.ndarray:
+    """将数据变为标准正态分布"""
+    data = numpy.atleast_1d(numpy.asarray(data))
+    samples = numpy.sort(NormalDistribution(0, 1).rvf(data.size))
+    data_index = numpy.argsort(numpy.argsort(data))
+    return samples[data_index]
+
+
+def resample_like_distribution(data, distribution: AbstractDistribution) -> numpy.ndarray:
+    """将数据变为分布"""
+    data = numpy.atleast_1d(numpy.asarray(data))
+    samples = numpy.sort(distribution.rvf(data.size))
+    data_index = numpy.argsort(numpy.argsort(data))
+    return samples[data_index]
+
+
+def generate_correlated_sample(base_sample, target_distribution: AbstractDistribution, pearson: float) -> numpy.ndarray:
+    """相关性的随机样本"""
+    pearson = numpy.clip(pearson, -1, 1)
+    z_scored_base = resample_like_standard_normal(base_sample)
+    new_sample = NormalDistribution(0, 1).rvf(z_scored_base.size)
+    new_sample = pearson * z_scored_base + (1 - pearson ** 2) ** 0.5 * new_sample
+    return resample_like_distribution(new_sample, target_distribution)
+
+
+def generate_correlated_sample_matrix(base_sample, *args: Tuple[AbstractDistribution, float]) -> numpy.ndarray:
+    """相关性的随机样本矩阵"""
+    return numpy.stack([
+        generate_correlated_sample(base_sample, arg[0], arg[1]) for arg in args
+    ], axis=0)
+
+
+if __name__ == "__main__":
+    from matplotlib import pyplot
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.uniform import UniformDistribution
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import LogNormalDistribution
+    from data_utils.stochastic_utils.vdistributions.nonparametric.discrete.basic import DiscreteDistribution
+
+    # dd = DiscreteDistribution(numpy.arange(10).reshape(-1, 2))
+    dd = LogNormalDistribution(0, 1)
+
+    d = NormalDistribution(1, 2).rvf(100)
+    n = generate_correlated_sample(d, dd, -0.5)
+    # pyplot.plot(d)
+    # pyplot.plot(n)
+    # pyplot.show()
+
+    pyplot.plot(generate_correlated_sample_matrix(
+        d,
+        (NormalDistribution(0, 1), 0.5),
+        (NormalDistribution(0, 2), -0.5),
+        (DiscreteDistribution(numpy.arange(10).reshape(-1, 2)), 1),
+    ).T)
+    pyplot.show()
+    print(
+        generate_correlated_sample_matrix(
+            d,
+            (NormalDistribution(0, 1), 0.5),
+            (NormalDistribution(0, 2), -0.5),
+            (DiscreteDistribution(numpy.arange(10).reshape(-1, 2)), 1),
+        )
+    )
+
+
+### File: E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions\tools\divergence.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+
+# 外部模块
+import numpy
+from scipy.integrate import quad
+
+
+# 代码块
+
+def kl_divergence_continuous(dist_0: AbstractDistribution, dist_1: AbstractDistribution):
+    """kl散度"""
+
+    def integrand(x):
+        px = dist_0.pdf(x)
+        qx = dist_1.pdf(x)
+        if px <= 1e-12 or qx <= 1e-12:
+            return 0.0
+        return px * numpy.log(px / qx)
+
+    domain_0 = dist_0.domain()
+    domain_1 = dist_1.domain()
+
+    domain_min = numpy.max([domain_0.min, domain_1.min])
+    domain_max = numpy.min([domain_0.max, domain_1.max])
+
+    result, _ = quad(integrand, domain_min, domain_max)
+    return result
+
+
+def crps(dist: AbstractDistribution, value):
+    """Continuous Ranked Probability Score"""
+
+    def f(x):
+        return (dist.cdf(x) - numpy.where(x >= value, 1, 0)) ** 2
+
+    domain_min, domain_max = dist.domain()
+    result, _ = quad(f, domain_min, domain_max)
+    return result
+
+
+def quantile_RMSE(dist_0: AbstractDistribution, dist_1: AbstractDistribution):
+    q = numpy.arange(0.01, 0.99, 0.01)
+    q0 = dist_0.ppf(q)
+    q1 = dist_1.ppf(q)
+    return numpy.sqrt(numpy.sum((q0 - q1) ** 2))
+
+
+def js_divergence_continuous(dist_0, dist_1):
+    def m_pdf(x):
+        return 0.5 * (dist_0.pdf(x) + dist_1.pdf(x))
+
+    def integrand(x, pdf_a):
+        p = pdf_a(x)
+        m = m_pdf(x)
+        mask = (p > 1e-12) & (m > 1e-12)
+        out = numpy.zeros_like(p)
+        out[mask] = p[mask] * numpy.log(p[mask] / m[mask])
+        return out
+
+    domain_min = max(dist_0.domain().min, dist_1.domain().min)
+    domain_max = min(dist_0.domain().max, dist_1.domain().max)
+    x = numpy.linspace(domain_min, domain_max, 500)
+    y = integrand(x, dist_0.pdf)
+    z = integrand(x, dist_1.pdf)
+
+    kl_p = numpy.trapz(y, x)
+    kl_q = numpy.trapz(z, x)
+
+    return 0.5 * (kl_p + kl_q)
+
+
+if __name__ == "__main__":
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+
+    # print(
+    #     kl_divergence_continuous(
+    #         NormalDistribution(0, 1),
+    #         NormalDistribution(0, 100)
+    #     )
+    # )
+    print(crps(NormalDistribution(0, 0.1), 0))
+
+
