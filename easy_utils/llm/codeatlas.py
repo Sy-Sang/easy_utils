@@ -81,9 +81,14 @@ def write_overview(structure, output_file):
 
 
 if __name__ == "__main__":
-    BASE_DIR = r'E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions'  # 你要扫描的目录，比如 './etrade'
-    OUTPUT_FILE = 'vdistributions.md'
+    base_dir_list = [
+        r'E:\code\github\data_utils\data_utils\stochastic_utils\vdistributions',
+        r'E:\code\github\etrade\etrade'
+    ]
+    for BASE_DIR in base_dir_list:
+        FILE_NAME = BASE_DIR.split("\\")[-1]
+        OUTPUT_FILE = f'{FILE_NAME}.md'
 
-    structure = walk_directory(BASE_DIR)
-    write_overview(structure, OUTPUT_FILE)
-    print(f"Overview written to {OUTPUT_FILE}")
+        structure = walk_directory(BASE_DIR)
+        write_overview(structure, OUTPUT_FILE)
+        print(f"Overview written to {OUTPUT_FILE}")

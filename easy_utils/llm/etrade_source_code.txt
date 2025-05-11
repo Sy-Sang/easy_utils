@@ -1,0 +1,1526 @@
+### File: E:\code\github\etrade\etrade\spot\trader.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# My github 模块
+
+
+# 项目模块
+from etrade.spot.resource.namedtuple import *
+from etrade.spot.market.recycle import Recycle
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+class Station:
+    """
+    发电厂
+    """
+
+    def __init__(self, name: str, max_power: float, min_price=0, max_price=numpy.inf):
+        self.name = name
+        self.max_power = max_power
+        self.min_price = min_price
+        self.max_price = max_price
+
+    def trade(self, actually_quantity, submitted_quantity, dayahead_price, realtime_price) -> numpy.ndarray:
+        """计算电力市场交易收益（支持批量计算）"""
+        actually_quantity = numpy.asarray(actually_quantity)
+        submitted_quantity = numpy.asarray(submitted_quantity)
+        dayahead_price = numpy.asarray(dayahead_price)
+        realtime_price = numpy.asarray(realtime_price)
+
+        aq = numpy.clip(actually_quantity, 0, self.max_power)
+        sq = numpy.clip(submitted_quantity, 0, self.max_power)
+        dp = numpy.clip(dayahead_price, self.min_price, self.max_price)
+        rp = numpy.clip(realtime_price, self.min_price, self.max_price)
+        rq = aq - sq
+
+        return sq * dp + rq * rp
+
+
+if __name__ == "__main__":
+    s = Station("s", 50)
+    aq = numpy.random.uniform(0, 100, 96)
+    sq = numpy.random.uniform(0, 100, 96)
+
+    print(
+        numpy.column_stack((
+            aq,
+            sq,
+            s.trade(30, sq, 1, 6)
+        ))
+    )
+
+
+### File: E:\code\github\etrade\etrade\spot\forecast\market.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self, Tuple
+from collections import namedtuple
+
+# 项目模块
+from easy_utils.number_utils.calculus_utils import n_integrate
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution
+from data_utils.stochastic_utils.vdistributions.tools.convert import generate_correlated_sample_matrix
+from data_utils.stochastic_utils.vdistributions.tools.divergence import kl_divergence_continuous, crps, quantile_RMSE, \
+    js_divergence_continuous
+
+from etrade.spot.trader import Station
+from etrade.spot.market.recycle import Recycle
+
+# 外部模块
+import numpy
+from scipy.optimize import differential_evolution, minimize
+from matplotlib import pyplot
+
+
+# 代码块
+
+class DistributiveSeries:
+    """分布序列"""
+
+    def __init__(self, *args: AbstractDistribution):
+        self.distributions = copy.deepcopy(args)
+        self.len = len(args)
+
+    def rvf(self, num: int):
+        """随机样本"""
+        return numpy.stack([d.rvf(num) for d in self.distributions], axis=0)
+
+    def mean(self, num: int):
+        return numpy.mean(self.rvf(num), axis=1)
+
+    def correlated_rvf(self, num: int, pearson: Tuple[float], sample=None):
+        """带有相关性的随机样本"""
+        sample = NormalDistribution(0, 1).rvf(num) if sample is None else numpy.asarray(sample)
+        return generate_correlated_sample_matrix(
+            sample,
+            *[(self.distributions[i], pearson[i]) for i in range(self.len)]
+        )
+
+
+class DistributiveMarket:
+    """市场内部变量"""
+
+    def __init__(self, power_generation: DistributiveSeries, dayahead_price: DistributiveSeries,
+                 realtime_price: DistributiveSeries):
+        self.power_generation = copy.deepcopy(power_generation)
+        self.dayahead_price = copy.deepcopy(dayahead_price)
+        self.realtime_price = copy.deepcopy(realtime_price)
+        self.shape = (3, self.power_generation.len)
+        self.map = {
+            0: self.power_generation,
+            1: self.dayahead_price,
+            2: self.realtime_price
+        }
+        self.market_len = self.power_generation.len
+
+    def __repr__(self):
+        return str({
+            "power_generation": self.power_generation.distributions,
+            "dayahead_price": self.dayahead_price.distributions,
+            "realtime_price": self.realtime_price.distributions
+        })
+
+    def plot(self, curve_index=1, num=100):
+        """显示pyplot"""
+        counter = 1
+        for i in range(3):
+            for j in range(self.power_generation.len):
+                pyplot.subplot(3, self.power_generation.len, counter)
+                curve = self.map[i].distributions[j].curves(num)[curve_index]
+                pyplot.plot(curve[:, 0], curve[:, 1])
+                counter += 1
+        pyplot.show()
+
+    def plot2(self, curve_index=1, num=100):
+        counter = 1
+        for i in range(self.power_generation.len):
+            pyplot.subplot(3, 1, counter)
+
+    def rvf(self, num: int, aq_range=(-numpy.inf, numpy.inf), dp_range=(-numpy.inf, numpy.inf),
+            rp_range=(-numpy.inf, numpy.inf)):
+        """随机样本"""
+        return (numpy.clip(self.power_generation.rvf(num), *aq_range),
+                numpy.clip(self.dayahead_price.rvf(num), *dp_range),
+                numpy.clip(self.realtime_price.rvf(num), *rp_range))
+
+    def observe(self):
+        """观测数据"""
+        return numpy.asarray(self.rvf(1)).reshape(3, -1)
+
+    def random_sample(self, aq_range=(-numpy.inf, numpy.inf), dp_range=(-numpy.inf, numpy.inf),
+                      rp_range=(-numpy.inf, numpy.inf)):
+        aq, dp, rp = self.rvf(1, aq_range, dp_range, rp_range)
+        aq = aq.reshape(self.shape[1])
+        dp = dp.reshape(self.shape[1])
+        rp = rp.reshape(self.shape[1])
+        return numpy.stack([aq, dp, rp], axis=0)
+
+    def mean(self, num: int):
+        return self.power_generation.mean(num), self.dayahead_price.mean(num), self.realtime_price.mean(num)
+
+    def correlated_rvf(self, num: int, pearson, samples=None):
+        """带有相关性的随机样本"""
+        samples = [
+            [None] * self.power_generation.len,
+            [None] * self.power_generation.len,
+            [None] * self.power_generation.len,
+        ] if samples is None else samples
+
+        return (
+            self.power_generation.correlated_rvf(num, pearson[0], samples[0]),
+            self.dayahead_price.correlated_rvf(num, pearson[1], samples[1]),
+            self.realtime_price.correlated_rvf(num, pearson[2], samples[2])
+        )
+
+    @classmethod
+    def trade(cls, station: Station, aq, dp, rp, x):
+        """交易"""
+        x = numpy.asarray(x)
+        if x.shape == aq.shape:
+            pass
+        else:
+            x = numpy.expand_dims(x, axis=1)
+            x = numpy.broadcast_to(x, aq.shape)
+        return numpy.sum(station.trade(aq, x, dp, rp), axis=0)
+
+    @classmethod
+    def trade_with_recycle(cls, station: Station, recycle: Recycle, aq, dp, rp, x):
+        """考虑回收机制的交易"""
+        return recycle(aq, x, cls.trade(station, aq, dp, rp, x))
+
+    def market_trade(self, station: Station, recycle: Recycle, x, num=1000):
+        aq, dp, rp = self.rvf(num)
+        return self.trade_with_recycle(station, recycle, aq, dp, rp, x)
+
+    def power_generation_optimizer(self, station: Station, recycle: Recycle, q_min=0, q_max=None, num=1000):
+        q_max = station.max_power if q_max is None else q_max
+        power_generation, dayahead_price, realtime_price = self.rvf(num)
+
+        def f(x):
+            return numpy.mean(
+                self.trade_with_recycle(station, recycle, power_generation, dayahead_price,
+                                        realtime_price, x)
+            ) * -1
+
+        result = differential_evolution(
+            f,
+            [(q_min, q_max)] * self.power_generation.len,
+            strategy='best1bin',  # 变异策略
+            # popsize=10,  # 种群大小（默认15，越小越快但精度低）
+            # mutation=(0.5, 1.0),  # 变异范围
+            # recombination=0.9,  # 交叉概率
+            tol=1e-5,
+            polish=True,  # 自动调用L-BFGS-B精修
+            # workers=-1,  # 多核并行
+            # updating='deferred',  # 提升并行效率
+        )
+        return result
+
+    def faster_power_generation_optimizer(self, station: Station, recycle: Recycle, q_min=0, q_max=None, num=1000):
+        q_min = 0 if q_min is None else q_min
+        q_max = station.max_power if q_max is None else q_max
+        power_generation, dayahead_price, realtime_price = self.rvf(num)
+        mean = self.mean(num)
+
+        def f(x):
+            return numpy.mean(
+                self.trade_with_recycle(station, recycle, power_generation, dayahead_price,
+                                        realtime_price, x)
+            ) * -1
+
+        result = minimize(f, mean[0], bounds=[(q_min, q_max)] * self.power_generation.len)
+        return result
+
+    @classmethod
+    def submitted_quantity_optimizer(cls, station: Station, recycle: Recycle, aq, dp, rp, q_min=0, q_max=None):
+        """sq优化器"""
+        q_max = station.max_power if q_max is None else q_max
+
+        def f(x):
+            return numpy.mean(
+                cls.trade_with_recycle(station, recycle, aq, dp, rp, x)
+            ) * -1
+
+        result = differential_evolution(f, [(q_min, q_max)] * len(aq), strategy='best1bin',
+                                        mutation=(0.5, 1), recombination=0.7,
+                                        popsize=15, maxiter=1000, tol=1e-6)
+        return result
+
+    def crps(self, aq, dp, rp):
+        """crps"""
+        aq = numpy.asarray(aq).reshape(-1)
+        dp = numpy.asarray(dp).reshape(-1)
+        rp = numpy.asarray(rp).reshape(-1)
+        l = [[], [], []]
+        for i in range(self.power_generation.len):
+            l[0].append(
+                crps(self.power_generation.distributions[i], aq[i])
+            )
+            l[1].append(
+                crps(self.dayahead_price.distributions[i], dp[i])
+            )
+            l[2].append(
+                crps(self.realtime_price.distributions[i], rp[i])
+            )
+        return numpy.asarray(l)
+
+    def faster_crps(self, aq, dp, rp):
+        def private_crps(dist: AbstractDistribution, value, num_points=100):
+            domain_min, domain_max = dist.domain()
+            x = numpy.linspace(domain_min, domain_max, num_points)
+            fx = (dist.cdf(x) - numpy.where(x >= value, 1, 0)) ** 2
+            return numpy.trapz(fx, x)
+
+        aq = numpy.asarray(aq).reshape(-1)
+        dp = numpy.asarray(dp).reshape(-1)
+        rp = numpy.asarray(rp).reshape(-1)
+        l = [[], [], []]
+        for i in range(self.power_generation.len):
+            l[0].append(
+                private_crps(self.power_generation.distributions[i], aq[i])
+            )
+            l[1].append(
+                private_crps(self.dayahead_price.distributions[i], dp[i])
+            )
+            l[2].append(
+                private_crps(self.realtime_price.distributions[i], rp[i])
+            )
+        return numpy.asarray(l)
+
+    def curve_matrix(self, curve_index=0):
+        m = []
+        for i in range(self.market_len):
+            column = [
+                self.power_generation.distributions[i].curves(10, 0.1)[curve_index][:,1],
+                self.dayahead_price.distributions[i].curves(10, 0.1)[curve_index][:,1],
+                self.realtime_price.distributions[i].curves(10, 0.1)[curve_index][:,1],
+            ]
+            m.append(column)
+        return numpy.asarray(m).reshape(-1)
+
+    # def price_kl_divergence(self):
+    #     """价格的kl散度"""
+    #     l = []
+    #     for i in range(self.power_generation.len):
+    #         l.append(
+    #             js_divergence_continuous(
+    #                 self.dayahead_price.distributions[i],
+    #                 self.realtime_price.distributions[i]
+    #             )
+    #         )
+    #     return numpy.asarray(l)
+    #
+    # def quantile_rmse_matrix(self):
+    #     """kl散度矩阵"""
+    #     m = []
+    #     for r in range(3):
+    #         row = []
+    #         for c in range(self.power_generation.len):
+    #             row.append(
+    #                 [quantile_RMSE(self.map[r].distributions[c], self.map[r].distributions[i]) for i in
+    #                  range(self.power_generation.len)]
+    #             )
+    #         m.append(row)
+    #     return m
+    #
+    # def pdf_difference(self, num=100):
+    #     v = []
+    #     for i in range(self.market_len):
+    #         dayahead_domain = self.dayahead_price.distributions[i].domain()
+    #         realtime_domain = self.realtime_price.distributions[i].domain()
+    #         domain_min = numpy.min([dayahead_domain[0], realtime_domain[0]])
+    #         domain_max = numpy.max([dayahead_domain[1], realtime_domain[1]])
+    #         x = numpy.linspace(domain_min, domain_max, num)
+    #         v.append(
+    #             numpy.sum(
+    #                 self.dayahead_price.distributions[i].pdf(x) - self.realtime_price.distributions[i].pdf(x) ** 2
+    #             )
+    #         )
+    #     return v
+    #
+    # def ppf_difference(self, num=20):
+    #     def to_positive(x):
+    #         delta = 1 - numpy.min(x)
+    #         return x + delta
+    #
+    #     def log_diff(x):
+    #         return numpy.diff(numpy.log(to_positive(x)))
+    #
+    #     def zscore(x):
+    #         std = numpy.std(x, ddof=1)
+    #         if std == 0:
+    #             raise Exception("[error]: std=0")
+    #         else:
+    #             return (x - numpy.mean(x)) / numpy.std(x, ddof=1)
+    #
+    #     v = numpy.empty((self.market_len, (num - 0) * 3))
+    #     for i in range(self.market_len):
+    #         power_ppf = self.power_generation.distributions[i].curves(num, 0.01)[0][:, 1]
+    #         dayahead_ppf = self.dayahead_price.distributions[i].curves(num, 0.01)[0][:, 1]
+    #         realtime_ppf = self.realtime_price.distributions[i].curves(num, 0.01)[0][:, 1]
+    #         v[i] = numpy.concatenate((
+    #             # log_diff(power_ppf),
+    #             # log_diff(dayahead_ppf),
+    #             # log_diff(realtime_ppf)
+    #             power_ppf, dayahead_ppf, realtime_ppf
+    #             # dayahead_ppf, realtime_ppf
+    #         ))
+    #     return v
+
+
+if __name__ == "__main__":
+    from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+    from matplotlib import pyplot
+
+    d = DistributiveSeries(NormalDistribution(0, 1), NormalDistribution(100, 10))
+    pyplot.scatter(*d.correlated_rvf(10, [1, 1]))
+    pyplot.show()
+    # print(d.rvf(10))
+
+
+### File: E:\code\github\etrade\etrade\spot\forecast\yieldindex.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""收益指标"""
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+def difference_quantile(x, y):
+    x = numpy.asarray(x)
+    y = numpy.asarray(y)
+    d = x - y
+    return numpy.quantile(d, numpy.arange(0.01, 0.99, 0.01))
+
+
+def zero_quantile(x, y):
+    x = numpy.asarray(x)
+    y = numpy.asarray(y)
+    d = numpy.sort(x - y)
+    # d = difference_quantile(x, y)
+    return numpy.searchsorted(d, 0) / len(d)
+
+
+if __name__ == "__main__":
+    pass
+
+
+### File: E:\code\github\etrade\etrade\spot\forecast\plan_a\constructor.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""plan a的随机市场变量构造器"""
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self, Type, Iterable
+from collections import namedtuple
+from abc import ABC, abstractmethod
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.parameter.abstract import ParameterDistribution
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution, \
+    SkewNormalDistribution, LogNormalDistribution
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.kernel.gaussian import \
+    GaussianKernelMixDistribution, GaussianKernelWeightedMixDistribution
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.kernel2 import KernelMixDistribution
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.histogram import HistogramDistribution
+from data_utils.stochastic_utils.vdistributions.tools.clip import ClampedDistribution
+
+from etrade.spot.trader import Station
+from etrade.spot.market.recycle import BasicRecycle, PointwiseRecycle
+from etrade.spot.forecast.market import DistributiveSeries, DistributiveMarket
+
+# 外部模块
+import numpy
+from matplotlib import pyplot
+
+
+# 代码块
+
+class AbstractDistributionConstructor(ABC):
+    @abstractmethod
+    def random(self, *args, **kwargs):
+        pass
+
+
+class DistributionConstructor(AbstractDistributionConstructor):
+    """分布构造器"""
+
+    def __init__(self, dist_type: Type[ParameterDistribution], param_range: list):
+        self.dist_type = dist_type
+        self.param_range = param_range
+
+    def random(self, num: int):
+        dist_list = []
+        params = numpy.zeros((len(self.param_range), num))
+        for i, pr in enumerate(self.param_range):
+            params[i] = numpy.random.uniform(pr[0], pr[1], num)
+
+        for i in range(num):
+            dist_list.append(self.dist_type(*params[:, i]))
+        return dist_list
+
+
+class OrdinaryGaussianKernelDistributionConstructor(AbstractDistributionConstructor):
+    """平凡的高斯核分布构造器"""
+
+    def __init__(self, mean_range=(0, 1), std_range=(1, 2), kernel_num_range=(1, 4)):
+        self.mean_range = mean_range
+        self.std_range = std_range
+        self.kernel_num_range = kernel_num_range
+
+    def random(self, num: int):
+        dist_list = []
+        for _ in range(num):
+            kernel_num = numpy.random.randint(*self.kernel_num_range)
+            kernel_arg = []
+            for k in range(kernel_num):
+                kernel_arg.append([
+                    numpy.random.uniform(*self.mean_range),
+                    numpy.random.uniform(*self.std_range)
+                ])
+            dist_list.append(
+                GaussianKernelMixDistribution(*kernel_arg)
+            )
+        return dist_list
+
+
+class MarketConstructor:
+    """市场构造器"""
+
+    def __init__(
+            self,
+            aq_constructor: AbstractDistributionConstructor,
+            dp_constructor: AbstractDistributionConstructor,
+            rp_constructor: AbstractDistributionConstructor
+    ):
+        self.aq_constructor = aq_constructor
+        self.dp_constructor = dp_constructor
+        self.rp_constructor = rp_constructor
+
+    def random(self, num: int):
+        aq = DistributiveSeries(*self.aq_constructor.random(num))
+        dp = DistributiveSeries(*self.dp_constructor.random(num))
+        rp = DistributiveSeries(*self.rp_constructor.random(num))
+        return DistributiveMarket(aq, dp, rp)
+
+
+def market_hybridization(market_a: DistributiveMarket, market_b: DistributiveMarket, num_a, num_b, kernel_num=None):
+    def kernel_or_his(data):
+        try:
+            return KernelMixDistribution(data, kernel_num=kernel_num)
+        except Exception as e:
+            # print(f"[Fallback] KernelMix failed: {e} — switching to HistogramDistribution")
+            print(f"[Fallback] KernelMix failed: — switching to HistogramDistribution")
+            return HistogramDistribution(data)
+
+    aq_a, dp_a, rp_a = market_a.rvf(num_a)
+    aq_b, dp_b, rp_b = market_b.rvf(num_b)
+    aq = numpy.column_stack((aq_a, aq_b))
+    dp = numpy.column_stack((dp_a, dp_b))
+    rp = numpy.column_stack((rp_a, rp_b))
+    aq_list = []
+    dp_list = []
+    rp_list = []
+    for i in range(len(aq)):
+        aq_list.append(kernel_or_his(aq[i]))
+        dp_list.append(kernel_or_his(dp[i]))
+        rp_list.append(kernel_or_his(rp[i]))
+    if num_b == 0:
+        return copy.deepcopy(market_a)
+    else:
+        aq_series = DistributiveSeries(*aq_list)
+        dp_series = DistributiveSeries(*dp_list)
+        rp_series = DistributiveSeries(*rp_list)
+    return DistributiveMarket(aq_series, dp_series, rp_series)
+
+
+def market_hybridization_by_weight(
+        market_a: DistributiveMarket,
+        market_b: DistributiveMarket,
+        num_a: numpy.ndarray,
+        num_b: numpy.ndarray
+):
+    def weight_hybridization(d_a: GaussianKernelMixDistribution, d_b: GaussianKernelMixDistribution, w_r_a, w_r_b):
+        k_a = d_a.kernel_data(None)
+        w_a = numpy.full(k_a.shape[0], w_r_a)
+        k_b = d_b.kernel_data(None)
+        w_b = numpy.full(k_b.shape[0], w_r_b)
+        arg_a = numpy.column_stack((k_a, w_a))
+        arg_b = numpy.column_stack((k_b, w_b))
+        args = numpy.concatenate((arg_a, arg_b))
+        return GaussianKernelWeightedMixDistribution(*args)
+
+    def series_hybridization(s_a: DistributiveSeries, s_b: DistributiveSeries, w_r_a, w_r_b):
+        d = []
+        for i in range(s_a.len):
+            d.append(weight_hybridization(
+                s_a.distributions[i], s_b.distributions[i], w_r_a[i], w_r_b[i]
+            ))
+        return DistributiveSeries(*d)
+
+    pg = series_hybridization(market_a.power_generation, market_b.power_generation, num_a[0], num_b[0])
+    dp = series_hybridization(market_a.dayahead_price, market_b.dayahead_price, num_a[1], num_b[1])
+    rp = series_hybridization(market_a.realtime_price, market_b.realtime_price, num_a[2], num_b[2])
+    return DistributiveMarket(pg, dp, rp)
+
+
+if __name__ == "__main__":
+    from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.kernel2 import silverman_bandwidth
+
+    for _ in range(100):
+        dist = OrdinaryGaussianKernelDistributionConstructor((0, 50), (0.1, 50), (2, 8)).random(4)
+        for d in dist:
+            try:
+                kd = KernelMixDistribution(d.rvf(1000))
+            except:
+                print(d.kernel_data(1))
+
+
+### File: E:\code\github\etrade\etrade\spot\forecast\plan_a\constructor2.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""构造器2"""
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+from data_utils.stochastic_utils.vdistributions.abstract import AbstractDistribution, eps
+from data_utils.stochastic_utils.vdistributions.parameter.abstract import ParameterDistribution
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution, \
+    SkewNormalDistribution, LogNormalDistribution
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.kernel.gaussian import \
+    GaussianKernelMixDistribution
+from data_utils.stochastic_utils.vdistributions.nonparametric.continuous.kernel2 import KernelMixDistribution
+from data_utils.stochastic_utils.vdistributions.tools.clip import ClampedDistribution
+
+from etrade.spot.trader import Station
+from etrade.spot.market.recycle import BasicRecycle, PointwiseRecycle
+from etrade.spot.forecast.market import DistributiveSeries, DistributiveMarket
+
+from etrade.spot.forecast.plan_a.constructor import AbstractDistributionConstructor
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+class KLDivergenceConstructor(AbstractDistributionConstructor):
+
+    def __init__(self, dist: AbstractDistribution, kl_divergence):
+        self.distribution = dist
+        self.kl_divergence = kl_divergence
+
+
+if __name__ == "__main__":
+    pass
+
+
+### File: E:\code\github\etrade\etrade\spot\forecast\plan_a\simulator.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""配对生成器"""
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+import multiprocessing
+import time
+import os
+from functools import partial
+
+# 项目模块
+from easy_utils.number_utils.number_utils import EasyFloat
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+from etrade.spot.forecast.market import DistributiveSeries, DistributiveMarket
+from etrade.spot.forecast.plan_a.constructor import *
+from etrade.spot.forecast.yieldindex import zero_quantile
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+def matched_gaussian_kernel_distribution_builder(kernel_data):
+    """同水平高斯核混合分布构造器"""
+    mu_data = kernel_data[:, 0]
+    std_data = kernel_data[:, 1]
+    l = len(kernel_data)
+    mu_dist = NormalDistribution(numpy.mean(mu_data), numpy.std(mu_data, ddof=1))
+    std_dist = NormalDistribution(numpy.mean(std_data), numpy.std(std_data, ddof=1))
+    return GaussianKernelMixDistribution(*numpy.column_stack((mu_dist.rvf(l), std_dist.rvf(l))))
+
+
+class MarketSimulator:
+    def __init__(
+            self,
+            aq_constructor: OrdinaryGaussianKernelDistributionConstructor,
+            dp_constructor: OrdinaryGaussianKernelDistributionConstructor,
+            rp_constructor: OrdinaryGaussianKernelDistributionConstructor,
+            aq_range=(-numpy.inf, numpy.inf),
+            dp_range=(-numpy.inf, numpy.inf),
+            rp_range=(-numpy.inf, numpy.inf),
+            real_market=1000, noise_weight=1000, market_len=4,
+            kernel_num=None
+    ):
+        self.mc = MarketConstructor(aq_constructor, dp_constructor, rp_constructor)
+        self.real_weight = real_market
+        self.noise_weight = noise_weight
+        self.real_market = self.mc.random(market_len)
+        self.noise_market = self.mc.random(market_len)
+        self.predicted_market = market_hybridization(
+            self.real_market, self.noise_market, self.real_weight, self.noise_weight, kernel_num
+        )
+        self.aq_range = aq_range
+        self.dp_range = dp_range
+        self.rp_range = rp_range
+        self.market_len = market_len
+
+    def refresh(self):
+        self.real_market = self.mc.random(self.market_len)
+        self.noise_market = self.mc.random(self.market_len)
+        self.predicted_market = market_hybridization(self.real_market, self.noise_market, self.real_weight,
+                                                     self.noise_weight)
+
+    def replicate_noice_bandwidth_refresh(self):
+        """保留噪音bandwidth的refresh"""
+        aq_dist_list: list[GaussianKernelMixDistribution] = list(self.noise_market.power_generation.distributions)
+        dp_dist_list: list[GaussianKernelMixDistribution] = list(self.noise_market.dayahead_price.distributions)
+        rp_dist_list: list[GaussianKernelMixDistribution] = list(self.noise_market.realtime_price.distributions)
+        for i in range(self.market_len):
+            aq_dist_list[i] = matched_gaussian_kernel_distribution_builder(aq_dist_list[i].kernel_data())
+            dp_dist_list[i] = matched_gaussian_kernel_distribution_builder(dp_dist_list[i].kernel_data())
+            rp_dist_list[i] = matched_gaussian_kernel_distribution_builder(rp_dist_list[i].kernel_data())
+        aq = DistributiveSeries(*aq_dist_list)
+        dp = DistributiveSeries(*dp_dist_list)
+        rp = DistributiveSeries(*rp_dist_list)
+        self.noise_market = DistributiveMarket(aq, dp, rp)
+        self.real_market = self.mc.random(self.market_len)
+        self.predicted_market = market_hybridization(self.real_market, self.noise_market, self.real_weight,
+                                                     self.noise_weight)
+
+    def observe(self):
+        """真实市场观察"""
+        return self.real_market.random_sample(self.aq_range, self.dp_range, self.rp_range)
+
+    def observed_crps(self):
+        data = self.observe()
+        crps = self.predicted_market.faster_crps(*data)
+        return crps
+
+    def random(self, rounds=1000):
+        power_generation, dayahead_price, realtime_price = self.predicted_market.rvf(
+            rounds, self.aq_range, self.dp_range, self.rp_range
+        )
+        return power_generation, dayahead_price, realtime_price
+
+    def optimize(self, station: Station, recycle: BasicRecycle, rounds=1000):
+        return self.predicted_market.submitted_quantity_optimizer(station, recycle, *self.random(rounds)).x
+
+    def predicted_market_trade(self, x, station: Station, recycle: BasicRecycle, rounds=1000):
+        power_generation, dayahead_price, realtime_price = self.predicted_market.rvf(
+            rounds, self.aq_range, self.dp_range, self.rp_range
+        )
+        return self.predicted_market.trade_with_recycle(
+            station, recycle, power_generation, dayahead_price, realtime_price, x
+        ), self.predicted_market.trade_with_recycle(
+            station, recycle, power_generation, dayahead_price, realtime_price, self.predicted_market.mean(rounds)[0]
+        )
+
+    def real_market_trade(self, x, station: Station, recycle: BasicRecycle, rounds=1000):
+        power_generation, dayahead_price, realtime_price = self.real_market.rvf(
+            rounds, self.aq_range, self.dp_range, self.rp_range
+        )
+        return self.real_market.trade_with_recycle(
+            station, recycle, power_generation, dayahead_price, realtime_price, x
+        ), self.real_market.trade_with_recycle(
+            station, recycle, power_generation, dayahead_price, realtime_price, self.real_market.mean(rounds)[0]
+        )
+
+    def alpha(self, opt, unopt):
+        diff = numpy.asarray(opt) - numpy.asarray(unopt)
+        return numpy.quantile(diff, EasyFloat.frange(0.1, 0.9, 0.1, True))
+
+    def alpha_quantile(self, opt, unopt, q):
+        diff = numpy.asarray(opt) - numpy.asarray(unopt)
+        return numpy.quantile(diff, q)
+
+
+def run_once(_, init_kwargs: dict, station, recycle, rounds=1000):
+    t = time.time()
+    mm = MarketSimulator(**init_kwargs)
+    oc = mm.observed_crps()
+    # mm.replicate_noice_bandwidth_refresh()
+    mm.refresh()
+    # kl = mm.predicted_market.price_kl_divergence()
+    kl = mm.predicted_market.ppf_difference(5)
+    # opt, z = mm.alpha_quantile(station, recycle, 0.2)
+    x = mm.optimize(station, recycle, rounds)
+    opt, unopt = mm.predicted_market_trade(x, station, recycle, rounds)
+    ropt, runopt = mm.real_market_trade(x, station, recycle, rounds)
+    z = mm.alpha_quantile(ropt, runopt, 0.2)
+
+    print(f"Task done in {time.time() - t:.2f}s")
+    return numpy.concatenate((
+        numpy.asarray(oc).reshape(-1),
+        numpy.asarray(kl).reshape(-1),
+        numpy.quantile(
+            numpy.asarray(opt) - numpy.asarray(unopt),
+            EasyFloat.frange(0.1, 0.9, 0.1, True)
+        ),
+        numpy.atleast_1d(z).reshape(-1)
+    ))
+
+
+if __name__ == "__main__":
+    from easy_datetime.timestamp import TimeStamp
+
+    t0 = TimeStamp.now()
+
+    init_kwargs = {
+        "aq_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 50), (1, 10), (1, 8)),
+        "dp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (1, 10), (1, 8)),
+        "rp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (1, 10), (1, 8)),
+        "aq_range": (0, 50),
+        "dp_range": (0, 1e+6),
+        "rp_range": (0, 1e+6),
+        "real_market": 100,
+        "noise_weight": 0,
+        "market_len": 1,
+        "kernel_num": None
+    }
+
+    init_kwargs_1 = {
+        "aq_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 50), (1, 10), (1, 8)),
+        "dp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (1, 10), (1, 8)),
+        "rp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (1, 10), (1, 8)),
+        "aq_range": (0, 50),
+        "dp_range": (0, 1e+6),
+        "rp_range": (0, 1e+6),
+        "real_market": 100,
+        "noise_weight": 0,
+        "market_len": 1,
+        "kernel_num": None
+    }
+
+    s = Station("station", 50)
+    br = PointwiseRecycle(0.5, 1.05)
+    with multiprocessing.Pool(processes=os.cpu_count()) as pool:
+        l = pool.map(partial(run_once, init_kwargs=init_kwargs, station=s, recycle=br), range(3000))
+
+    with open(r"data\market_simulator_3.json", "w") as f:
+        f.write(json.dumps({"data": numpy.asarray(l).tolist()}))
+
+    with multiprocessing.Pool(processes=os.cpu_count()) as pool:
+        l = pool.map(partial(run_once, init_kwargs=init_kwargs_1, station=s, recycle=br), range(600))
+
+    with open(r"data\market_simulator_4.json", "w") as f:
+        f.write(json.dumps({"data": numpy.asarray(l).tolist()}))
+
+    print(TimeStamp.now() - t0)
+
+    # aq = OrdinaryGaussianKernelDistributionConstructor((0, 50), (0.1, 10), (2, 8))
+    # dp = OrdinaryGaussianKernelDistributionConstructor((0, 10), (0.1, 10), (2, 8))
+    # rp = OrdinaryGaussianKernelDistributionConstructor((0, 10), (0.1, 10), (2, 8))
+    # s = Station("station", 50)
+    # br = PointwiseRecycle(0.5, 1.05)
+    # simulator = MarketSimulator(aq, dp, rp, aq_range=(0, 50), dp_range=(0, 1e+6), rp_range=(0, 1e+6), n0=1000, n1=200)
+    # print(simulator.noice_market.random_sample(
+    #     simulator.aq_range, simulator.dp_range, simulator.rp_range
+    # ))
+    # simulator.replicate_noice_bandwidth_refresh()
+    # print(simulator.noice_market.random_sample(
+    #     simulator.aq_range, simulator.dp_range, simulator.rp_range
+    # ))
+
+
+### File: E:\code\github\etrade\etrade\spot\forecast\plan_a\simulator2.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""模拟器2"""
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+import multiprocessing
+import time
+import os
+from functools import partial
+
+# 项目模块
+from easy_utils.number_utils.number_utils import EasyFloat
+from data_utils.stochastic_utils.vdistributions.parameter.continuous.basic import NormalDistribution
+from etrade.spot.forecast.market import DistributiveSeries, DistributiveMarket
+from etrade.spot.forecast.plan_a.constructor import *
+from etrade.spot.forecast.yieldindex import zero_quantile
+
+from etrade.spot.forecast.plan_a.simulator import MarketSimulator
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+class WeightGaussianMarketSimulator(MarketSimulator):
+    """
+    按核权重添加噪音的市场模拟器
+    """
+
+    def __init__(
+            self,
+            aq_constructor: OrdinaryGaussianKernelDistributionConstructor,
+            dp_constructor: OrdinaryGaussianKernelDistributionConstructor,
+            rp_constructor: OrdinaryGaussianKernelDistributionConstructor,
+            aq_range=(-numpy.inf, numpy.inf),
+            dp_range=(-numpy.inf, numpy.inf),
+            rp_range=(-numpy.inf, numpy.inf),
+            real_weight=numpy.ones((3, 4)),
+            noise_weight=numpy.ones((3, 4)),
+            market_len=4
+    ):
+        self.mc = MarketConstructor(aq_constructor, dp_constructor, rp_constructor)
+        self.real_weight = real_weight
+        self.noise_weight = noise_weight
+        self.real_market = self.mc.random(market_len)
+        self.noise_market = self.mc.random(market_len)
+        self.predicted_market = market_hybridization_by_weight(
+            self.real_market, self.noise_market, self.real_weight, self.noise_weight
+        )
+        self.aq_range = aq_range
+        self.dp_range = dp_range
+        self.rp_range = rp_range
+        self.market_len = market_len
+
+    def refresh(self):
+        self.real_market = self.mc.random(self.market_len)
+        self.noise_market = self.mc.random(self.market_len)
+        self.predicted_market = market_hybridization_by_weight(
+            self.real_market, self.noise_market, self.real_weight, self.noise_weight
+        )
+
+    def historical_observe(self, station: Station, recycle: BasicRecycle, rounds=1000, epoch=3):
+        """用于在run_once中输出历史观测数据"""
+
+        def observed_alpha(o, x):
+            o_trade = recycle(o[0], o[0], station.trade(o[0], o[0], o[1], o[2]))
+            x_trade = recycle(o[0], x, station.trade(o[0], x, o[1], o[2]))
+            return x_trade - o_trade
+
+        table = []
+        for _ in range(epoch):
+            observed = self.real_market.observe()
+            crps = self.predicted_market.faster_crps(*observed)
+            x = self.optimize(station, recycle, rounds)
+            curve_data = self.predicted_market.curve_matrix(0)
+            alpha = observed_alpha(observed, x)
+            row = numpy.concatenate((
+                numpy.asarray(observed).reshape(-1),
+                numpy.asarray(crps).reshape(-1),
+                numpy.asarray(curve_data).reshape(-1),
+                numpy.array(x).reshape(-1),
+                numpy.asarray(alpha).reshape(-1)
+            ))
+            table.append(row)
+            self.refresh()
+        return numpy.asarray(table).reshape(-1)
+
+
+def run_once(_, init_kwargs: dict, station, recycle, rounds=1000):
+    noise_level = numpy.random.uniform(0.01, 0.2)
+    init_kwargs["noise_weight"] = numpy.full((3, 1), noise_level)
+
+    t = time.time()
+    mm = WeightGaussianMarketSimulator(**init_kwargs)
+    observed = mm.historical_observe(station, recycle, rounds, 3)
+
+    x = mm.optimize(station, recycle, rounds)
+    opt, unopt = mm.predicted_market_trade(x, station, recycle, rounds)
+    ropt, runopt = mm.real_market_trade(x, station, recycle, rounds)
+    z = mm.alpha_quantile(ropt, runopt, 0.5)
+
+    print(f"Task done in {time.time() - t:.2f}s")
+    return numpy.concatenate((
+        observed,
+        mm.predicted_market.curve_matrix(0),
+        numpy.array(x).reshape(-1),
+        numpy.quantile(
+            numpy.asarray(opt) - numpy.asarray(unopt),
+            EasyFloat.frange(0.1, 0.9, 0.1, True)
+        ),
+        numpy.atleast_1d(z).reshape(-1)
+    ))
+
+
+if __name__ == "__main__":
+    from easy_datetime.timestamp import TimeStamp
+
+    t0 = TimeStamp.now()
+
+    init_kwargs = {
+        "aq_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 50), (1, 10), (1, 8)),
+        "dp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (1, 10), (1, 8)),
+        "rp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (1, 10), (1, 8)),
+        "aq_range": (0, 50),
+        "dp_range": (0, 1e+6),
+        "rp_range": (0, 1e+6),
+        # "real_market": 100,
+        "noise_weight": numpy.full((3, 1), 0.1),
+        "market_len": 1,
+        # "kernel_num": None
+    }
+
+    init_kwargs_1 = {
+        "aq_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 50), (1, 10), (1, 8)),
+        "dp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (1, 10), (1, 8)),
+        "rp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (1, 10), (1, 8)),
+        "aq_range": (0, 50),
+        "dp_range": (0, 1e+6),
+        "rp_range": (0, 1e+6),
+        # "real_market": 100,
+        "noise_weight": numpy.full((3, 1), 0.1),
+        "market_len": 1,
+        # "kernel_num": None
+    }
+
+    s = Station("station", 50)
+    br = PointwiseRecycle(0.5, 1.05)
+    with multiprocessing.Pool(processes=os.cpu_count()) as pool:
+        l = pool.map(partial(run_once, init_kwargs=init_kwargs, station=s, recycle=br), range(6000))
+
+    with open(r"data\market_simulator_5.json", "w") as f:
+        f.write(json.dumps({"data": numpy.asarray(l).tolist()}))
+
+    with multiprocessing.Pool(processes=os.cpu_count()) as pool:
+        l = pool.map(partial(run_once, init_kwargs=init_kwargs_1, station=s, recycle=br), range(300))
+
+    with open(r"data\market_simulator_6.json", "w") as f:
+        f.write(json.dumps({"data": numpy.asarray(l).tolist()}))
+
+    print(TimeStamp.now() - t0)
+
+
+### File: E:\code\github\etrade\etrade\spot\forecast\plan_a\transformer.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""transformer预测器"""
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+
+# 外部模块
+import numpy
+import torch
+from torch import nn
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
+
+
+# 代码块
+
+class MarketSampleDataset(Dataset):
+    def __init__(self, data_array):
+        # data_array: numpy array, (n_samples, 64)
+        self.data = torch.tensor(data_array, dtype=torch.float32)
+        self.data_len, self.data_width = data_array.shape
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        # x = self.data[idx, 3:63]  # 取PPF部分(60维)
+        # crps = self.data[idx, 0:3]  # 取CRPS部分(3维)
+        x_full = self.data[idx, :self.data_width - 1]  # 合起来63维
+        y = self.data[idx, self.data_width - 1]  # zero_quantile
+        return x_full, y
+
+
+class MarketSampleTransformer(nn.Module):
+    def __init__(self, features_num=63, emb_dim=32, nhead=4, nlayers=2):
+        super().__init__()
+        self.embedding = nn.Linear(features_num, emb_dim)  # 60维输入, embed到更高维
+        # self.norm = nn.LayerNorm(emb_dim)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=emb_dim, nhead=nhead)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=nlayers)
+        self.head = nn.Linear(emb_dim, 1)  # 输出 zero_quantile
+
+    def forward(self, x):
+        # x: (batch_size, 60)
+        x = self.embedding(x)  # (batch_size, emb_dim)
+        # x = self.norm(x)
+        x = x.unsqueeze(1)  # (batch_size, seq_len=1, emb_dim)
+        x = self.transformer_encoder(x)  # (batch_size, seq_len=1, emb_dim)
+        x = x.mean(dim=1)  # mean pooling (seq_len维度)
+        out = self.head(x).squeeze(-1)  # (batch_size, 1)
+        return out
+
+
+class TabTransformer(nn.Module):
+    def __init__(self, num_numeric, emb_dim=32, num_heads=4, num_layers=2, dropout=0.1):
+        super(TabTransformer, self).__init__()
+
+        # 单独投影每个 numeric 特征
+        self.numeric_proj = nn.ModuleList([
+            nn.Linear(1, emb_dim) for _ in range(num_numeric)
+        ])
+
+        # Transformer 编码器
+        encoder_layer = nn.TransformerEncoderLayer(d_model=emb_dim, nhead=num_heads, dropout=dropout)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+        # 输出 MLP
+        self.output = nn.Sequential(
+            nn.Linear(emb_dim, 64),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(64, 1)  # 回归预测
+        )
+
+    def forward(self, numeric_data):
+        # numeric_data: (batch_size, num_numeric)
+        tokens = []
+        for i, proj in enumerate(self.numeric_proj):
+            feature_i = numeric_data[:, i].unsqueeze(1)  # (batch_size, 1)
+            token_i = proj(feature_i)  # (batch_size, emb_dim)
+            tokens.append(token_i)
+
+        tokens = torch.stack(tokens, dim=1)  # (batch_size, num_numeric, emb_dim)
+        tokens = tokens.permute(1, 0, 2)  # (seq_len, batch_size, emb_dim)
+
+        encoded = self.transformer(tokens)  # (seq_len, batch_size, emb_dim)
+        pooled = encoded.mean(dim=0)  # (batch_size, emb_dim)
+
+        out = self.output(pooled).squeeze(-1)  # (batch_size)
+        return out
+
+
+if __name__ == "__main__":
+    pass
+
+
+### File: E:\code\github\etrade\etrade\spot\market\recycle.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+from abc import ABC, abstractmethod
+
+# 项目模块
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+class Recycle(ABC):
+    """超额回收机制(抽象类)"""
+
+    @abstractmethod
+    def __call__(self, *args, **kwargs):
+        pass
+
+
+class BasicRecycle(Recycle):
+
+    def __init__(self, bias_ratio: float = 0.5,
+                 penalty_coefficient: float = 1.05):
+        self.bias_ratio = bias_ratio
+        self.penalty_coefficient = penalty_coefficient
+
+    def __call__(self, actually_quantity_table, submitted_quantity, trade_yield_table, *args, **kwargs):
+        actually_quantity_table = numpy.atleast_2d(actually_quantity_table)
+        trade_yield_table = numpy.atleast_2d(trade_yield_table)
+
+        aq_sum = numpy.sum(actually_quantity_table, axis=0)  # 每列求和
+        sq_sum = numpy.sum(submitted_quantity)
+
+        bias_mask = (aq_sum > (1 + self.bias_ratio) * sq_sum) | (aq_sum < self.bias_ratio * sq_sum)
+        penalty = numpy.sum(trade_yield_table, axis=0) * self.penalty_coefficient
+
+        adjusted_yield = numpy.sum(trade_yield_table, axis=0) - penalty * bias_mask.astype(float)
+        return adjusted_yield
+
+
+class PointwiseRecycle(BasicRecycle):
+    """逐点的回收机制"""
+
+    def penalty_q(self, aq_table, sq):
+        """判断是否惩罚"""
+        aq_table = numpy.atleast_2d(aq_table)
+        sq = numpy.asarray(sq)
+        if sq.shape == aq_table.shape:
+            pass
+        else:
+            sq = numpy.expand_dims(sq, axis=1)
+            sq = numpy.broadcast_to(sq, aq_table.shape)
+        condition = (aq_table > (1 + self.bias_ratio) * sq) | (aq_table < self.bias_ratio * sq)
+        # return numpy.any(condition, axis=0)
+        return condition
+
+    def __call__(self, actually_quantity_table, submitted_quantity, trade_yield_table, *args, **kwargs):
+        trade_yield_table = numpy.atleast_2d(trade_yield_table)
+
+        penalty_mask = self.penalty_q(actually_quantity_table, submitted_quantity)
+        # penalty = numpy.sum(trade_yield_table, axis=0) * self.penalty_coefficient
+        # adjusted_yield = numpy.sum(trade_yield_table, axis=0) - penalty * penalty_mask.astype(float)
+        # return adjusted_yield
+        penalty = trade_yield_table * self.penalty_coefficient
+        adjusted_yield = numpy.sum(trade_yield_table, axis=0) - numpy.sum(penalty * penalty_mask.astype(float), axis=0)
+        return adjusted_yield
+
+
+if __name__ == "__main__":
+    br = BasicRecycle()
+    print(br(50, 40, 100))
+
+    pr = PointwiseRecycle()
+
+    print(pr.penalty_q(numpy.arange(16).reshape(-1, 2), numpy.arange(0, 16, 2)))
+
+
+### File: E:\code\github\etrade\etrade\spot\nb\simulator_test.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""nb6"""
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+import multiprocessing
+import time
+
+import os
+
+from functools import partial
+
+# 项目模块
+from etrade.spot.forecast.market import DistributiveSeries, DistributiveMarket
+from etrade.spot.forecast.plan_a.constructor import *
+from etrade.spot.forecast.yieldindex import zero_quantile
+
+# 外部模块
+import numpy
+
+
+# 代码块
+
+def matched_gaussian_kernel_distribution_builder(kernel_data):
+    """同水平高斯核混合分布构造器"""
+    mu_data = kernel_data[:, 0]
+    std_data = kernel_data[:, 1]
+    l = len(kernel_data)
+    mu_dist = NormalDistribution(numpy.mean(mu_data), numpy.std(mu_data, ddof=1))
+    std_dist = NormalDistribution(numpy.mean(std_data), numpy.std(std_data, ddof=1))
+    return GaussianKernelMixDistribution(*numpy.column_stack((mu_dist.rvf(l), std_dist.rvf(l))))
+
+
+class MarketSimulator:
+    def __init__(
+            self,
+            aq_constructor: OrdinaryGaussianKernelDistributionConstructor,
+            dp_constructor: OrdinaryGaussianKernelDistributionConstructor,
+            rp_constructor: OrdinaryGaussianKernelDistributionConstructor,
+            aq_range=(-numpy.inf, numpy.inf),
+            dp_range=(-numpy.inf, numpy.inf),
+            rp_range=(-numpy.inf, numpy.inf),
+            n0=1000, n1=1000, len=4
+    ):
+        self.mc = MarketConstructor(aq_constructor, dp_constructor, rp_constructor)
+        self.n0 = n0
+        self.n1 = n1
+        self.real_market = self.mc.random(4)
+        self.noice_market = self.mc.random(4)
+        self.predicted_market = market_hybridization(self.real_market, self.noice_market, self.n0, self.n1)
+        self.aq_range = aq_range
+        self.dp_range = dp_range
+        self.rp_range = rp_range
+        self.len = len
+
+    def refresh(self):
+        self.real_market = self.mc.random(self.len)
+        self.noice_market = self.mc.random(self.len)
+        self.predicted_market = market_hybridization(self.real_market, self.noice_market, self.n0, self.n1)
+
+    def replicate_noice_bandwidth_refresh(self):
+        """保留噪音bandwidth的refresh"""
+        aq_dist_list: list[GaussianKernelMixDistribution] = list(self.noice_market.power_generation.distributions)
+        dp_dist_list: list[GaussianKernelMixDistribution] = list(self.noice_market.dayahead_price.distributions)
+        rp_dist_list: list[GaussianKernelMixDistribution] = list(self.noice_market.realtime_price.distributions)
+        for i in range(self.len):
+            aq_dist_list[i] = matched_gaussian_kernel_distribution_builder(aq_dist_list[i].kernel_data())
+            dp_dist_list[i] = matched_gaussian_kernel_distribution_builder(dp_dist_list[i].kernel_data())
+            rp_dist_list[i] = matched_gaussian_kernel_distribution_builder(rp_dist_list[i].kernel_data())
+        aq = DistributiveSeries(*aq_dist_list)
+        dp = DistributiveSeries(*dp_dist_list)
+        rp = DistributiveSeries(*rp_dist_list)
+        self.noice_market = DistributiveMarket(aq, dp, rp)
+        self.real_market = self.mc.random(self.len)
+        self.predicted_market = market_hybridization(self.real_market, self.noice_market, self.n0, self.n1)
+
+    def observe(self):
+        """真实市场观察"""
+        return self.real_market.random_sample(self.aq_range, self.dp_range, self.rp_range)
+
+    def observed_crps(self):
+        data = self.observe()
+        crps = self.predicted_market.faster_crps(*data)
+        return crps
+
+    def random(self, rounds=1000):
+        power_generation, dayahead_price, realtime_price = self.predicted_market.rvf(
+            rounds, self.aq_range, self.dp_range, self.rp_range
+        )
+        return power_generation, dayahead_price, realtime_price
+
+    def optimize(self, station: Station, recycle: BasicRecycle, rounds=1000):
+        return self.predicted_market.submitted_quantity_optimizer(station, recycle, *self.random(rounds)).x
+
+    def quantile(self, station: Station, recycle: BasicRecycle, rounds=1000):
+        x = self.optimize(station, recycle, rounds)
+        power_generation, dayahead_price, realtime_price = self.real_market.rvf(
+            rounds, self.aq_range, self.dp_range, self.rp_range
+        )
+        return self.real_market.trade_with_recycle(station, recycle, power_generation, dayahead_price, realtime_price,
+                                                   x), self.real_market.trade_with_recycle(
+            station, recycle, power_generation, dayahead_price, realtime_price, self.real_market.mean(rounds)[0]
+        )
+
+    def zero_quantile(self, station: Station, recycle: BasicRecycle, rounds=1000):
+        x = self.optimize(station, recycle, rounds)
+        power_generation, dayahead_price, realtime_price = self.real_market.rvf(
+            rounds, self.aq_range, self.dp_range, self.rp_range
+        )
+        return zero_quantile(
+            self.real_market.trade_with_recycle(station, recycle, power_generation, dayahead_price, realtime_price, x),
+            self.real_market.trade_with_recycle(
+                station, recycle, power_generation, dayahead_price, realtime_price, self.real_market.mean(rounds)[0]
+            )
+        )
+
+
+if __name__ == "__main__":
+    init_kwargs = {
+        "aq_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 50), (0.1, 10), (1, 8)),
+        "dp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (0.1, 10), (1, 8)),
+        "rp_constructor": OrdinaryGaussianKernelDistributionConstructor((0, 10), (0.1, 10), (1, 8)),
+        "aq_range": (0, 50),
+        "dp_range": (0, 1e+6),
+        "rp_range": (0, 1e+6),
+        "n0": 1000,
+        "n1": 10,
+        "len": 4
+    }
+    s = Station("station", 50)
+    br = PointwiseRecycle(0.5, 1.05)
+
+    ms = MarketSimulator(**init_kwargs)
+
+    a, b = ms.quantile(s, br)
+    pyplot.plot(numpy.sort(a - b))
+    # pyplot.plot(numpy.sort(b))
+    pyplot.show()
+
+    print(ms.predicted_market.price_kl_divergence())
+    print(zero_quantile(a, b))
+
+
+### File: E:\code\github\etrade\etrade\spot\resource\namedtuple.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+__author__ = "Sy,Sang"
+__version__ = ""
+__license__ = "GPLv3"
+__maintainer__ = "Sy, Sang"
+__email__ = "martin9le@163.com"
+__status__ = "Development"
+__credits__ = []
+__date__ = ""
+__copyright__ = ""
+
+# 系统模块
+import copy
+import pickle
+import json
+from typing import Union, Self
+from collections import namedtuple
+
+# 项目模块
+
+# 外部模块
+import numpy
+
+# 代码块
+
+if __name__ == "__main__":
+    pass
+
+

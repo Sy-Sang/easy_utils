@@ -2,25 +2,26 @@
 
 ## Module Tree
 
-- etrade\spot\trader.py
-- etrade\spot\forecast\market.py
-- etrade\spot\forecast\yieldindex.py
-- etrade\spot\forecast\plan_a\constructor.py
-- etrade\spot\forecast\plan_a\constructor2.py
-- etrade\spot\forecast\plan_a\simulator.py
-- etrade\spot\forecast\plan_a\transformer.py
-- etrade\spot\market\recycle.py
-- etrade\spot\nb\simulator_test.py
-- etrade\spot\resource\namedtuple.py
+- spot\trader.py
+- spot\forecast\market.py
+- spot\forecast\yieldindex.py
+- spot\forecast\plan_a\constructor.py
+- spot\forecast\plan_a\constructor2.py
+- spot\forecast\plan_a\simulator.py
+- spot\forecast\plan_a\simulator2.py
+- spot\forecast\plan_a\transformer.py
+- spot\market\recycle.py
+- spot\nb\simulator_test.py
+- spot\resource\namedtuple.py
 
 ## Core Classes and Functions
 
-### etrade\spot\trader.py
+### spot\trader.py
 - class Station
     - method __init__()
     - method trade()
 
-### etrade\spot\forecast\market.py
+### spot\forecast\market.py
 - class DistributiveSeries
     - method __init__()
     - method rvf()
@@ -44,16 +45,13 @@
     - method submitted_quantity_optimizer()
     - method crps()
     - method faster_crps()
-    - method price_kl_divergence()
-    - method quantile_rmse_matrix()
-    - method pdf_difference()
-    - method ppf_difference()
+    - method curve_matrix()
 
-### etrade\spot\forecast\yieldindex.py
+### spot\forecast\yieldindex.py
 - function difference_quantile()
 - function zero_quantile()
 
-### etrade\spot\forecast\plan_a\constructor.py
+### spot\forecast\plan_a\constructor.py
 - class AbstractDistributionConstructor
     - method random()
 - class DistributionConstructor
@@ -68,11 +66,11 @@
 - function market_hybridization()
 - function market_hybridization_by_weight()
 
-### etrade\spot\forecast\plan_a\constructor2.py
+### spot\forecast\plan_a\constructor2.py
 - class KLDivergenceConstructor
     - method __init__()
 
-### etrade\spot\forecast\plan_a\simulator.py
+### spot\forecast\plan_a\simulator.py
 - function matched_gaussian_kernel_distribution_builder()
 - class MarketSimulator
     - method __init__()
@@ -82,16 +80,20 @@
     - method observed_crps()
     - method random()
     - method optimize()
-    - method optimized_trade()
-    - method zero_quantile()
+    - method predicted_market_trade()
+    - method real_market_trade()
     - method alpha()
     - method alpha_quantile()
+- function run_once()
+
+### spot\forecast\plan_a\simulator2.py
 - class WeightGaussianMarketSimulator
     - method __init__()
     - method refresh()
+    - method historical_observe()
 - function run_once()
 
-### etrade\spot\forecast\plan_a\transformer.py
+### spot\forecast\plan_a\transformer.py
 - class MarketSampleDataset
     - method __init__()
     - method __len__()
@@ -99,8 +101,11 @@
 - class MarketSampleTransformer
     - method __init__()
     - method forward()
+- class TabTransformer
+    - method __init__()
+    - method forward()
 
-### etrade\spot\market\recycle.py
+### spot\market\recycle.py
 - class Recycle
     - method __call__()
 - class BasicRecycle
@@ -110,7 +115,7 @@
     - method penalty_q()
     - method __call__()
 
-### etrade\spot\nb\simulator_test.py
+### spot\nb\simulator_test.py
 - function matched_gaussian_kernel_distribution_builder()
 - class MarketSimulator
     - method __init__()
@@ -123,5 +128,5 @@
     - method quantile()
     - method zero_quantile()
 
-### etrade\spot\resource\namedtuple.py
+### spot\resource\namedtuple.py
 
