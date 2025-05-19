@@ -9,6 +9,7 @@
 - spot\forecast\plan_a\constructor2.py
 - spot\forecast\plan_a\simulator.py
 - spot\forecast\plan_a\simulator2.py
+- spot\forecast\plan_a\simulator3.py
 - spot\forecast\plan_a\transformer.py
 - spot\market\recycle.py
 - spot\nb\simulator_test.py
@@ -46,6 +47,7 @@
     - method crps()
     - method faster_crps()
     - method curve_matrix()
+    - method faster_log_score()
 
 ### spot\forecast\yieldindex.py
 - function difference_quantile()
@@ -92,6 +94,18 @@
     - method refresh()
     - method historical_observe()
 - function run_once()
+
+### spot\forecast\plan_a\simulator3.py
+- class MultiMarketSimulator
+    - method __init__()
+    - method refresh()
+    - method observed_trade()
+    - method predicted_ppf()
+    - method predicted_random()
+    - method predicted_optimize()
+    - method predicted_trade()
+    - method predicted_crps()
+    - method predicted_log_score()
 
 ### spot\forecast\plan_a\transformer.py
 - class MarketSampleDataset
